@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 
 const images = [
-  '/public/picture1.jpg',
-  '/public/picture5.jpg',
-  '/public/picture3.jpeg'
+  'picture1.jpg',
+  'picture5.jpg',
+  'picture3.jpeg'
 ];
 
 const HeroSection = () => {

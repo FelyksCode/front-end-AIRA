@@ -11,7 +11,7 @@ const PrognosisFeature = () => {
     >
       {/* Bigger image */}
       <img
-        src="/public/picture3.jpeg"
+        src="picture3.jpeg"
         alt="Prognosis"
         className="w-full h-60 object-cover"
       />

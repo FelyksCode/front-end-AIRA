@@ -92,7 +92,7 @@ const DiagnosisSection: React.FC = () => {
       <main
         className="relative flex flex-1 h-[600px] overflow-hidden"
         style={{
-          backgroundImage: `url('/public/picture3.jpeg')`,
+          backgroundImage: `url('/picture3.jpeg')`,
           backgroundSize: 'cover',
           backgroundPosition: 'center left',
         }}

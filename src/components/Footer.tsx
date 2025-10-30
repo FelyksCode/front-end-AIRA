@@ -40,7 +40,7 @@ const Footer = () => {
         {/* Logo & About Us */}
         <div className="flex flex-col">
           <img
-            src="/public/logo.png"
+            src="logo.png"
             alt="AIRA Logo"
             className="w-32 mb-4"
           />
@@ -120,7 +120,7 @@ const Footer = () => {
       {/* Cityscape Background */}
       <div className="absolute bottom-0 left-0 w-full">
         <img
-          src="/assets/footer-city.png"
+          src="footer-city.png"
           alt="Cityscape"
           className="w-full object-cover"
         />

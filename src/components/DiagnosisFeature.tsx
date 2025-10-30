@@ -13,7 +13,7 @@ const DiagnosisFeature = () => {
     >
       {/* Bigger image */}
       <img
-        src="/public/picture1.jpg"
+        src="picture1.jpg"
         alt="Diagnosis"
         className="w-full h-60 object-cover"
       />

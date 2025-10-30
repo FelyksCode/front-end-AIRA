@@ -11,7 +11,7 @@ const TreatmentFeature = () => {
     >
       {/* Bigger image */}
       <img
-        src="/public/picture5.jpg"
+        src="picture5.jpg"
         alt="Treatment"
         className="w-full h-60 object-cover"
       />
