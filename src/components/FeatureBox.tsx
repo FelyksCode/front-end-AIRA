@@ -23,11 +23,11 @@ const DiagnosisSteps = () => {
   return (
     <section className="w-full py-12 bg-white flex justify-center">
       <div className="relative w-full max-w-6xl px-6">
-        {/* Horizontal line (timeline) */}
-        <div className="absolute top-8 left-0 right-0 h-1 bg-blue-300" />
+        {/* Horizontal line (timeline) – hidden on mobile */}
+        <div className="hidden md:block absolute top-8 left-0 right-0 h-1 bg-blue-300" />
 
         {/* Steps */}
-        <div className="flex justify-between relative z-10">
+        <div className="flex flex-wrap md:flex-nowrap justify-center md:justify-between gap-6 relative z-10">
           {steps.map((step, index) => (
             <StepBox key={index} title={step.title} desc={step.desc} />
           ))}
@@ -50,16 +50,16 @@ const StepBox = ({ title, desc }: { title: string; desc: string }) => {
   }, [isOpen]);
 
   return (
-    <div className="flex flex-col items-center w-[220px]">
-      {/* Circle above the line */}
+    <div className="flex flex-col items-center w-full sm:w-[220px]">
+      {/* Circle above (only visible on desktop) */}
       <div
-        className="w-6 h-6 rounded-full bg-blue-900 border-4 border-white shadow cursor-pointer"
+        className="hidden md:block w-6 h-6 rounded-full bg-blue-900 border-4 border-white shadow cursor-pointer"
         onClick={() => setIsOpen(!isOpen)}
       ></div>
 
       {/* Box */}
       <div
-        className="mt-6 bg-blue-900 text-white rounded-lg shadow-md cursor-pointer w-full transition-all duration-300 ease-in-out"
+        className="mt-4 bg-blue-900 text-white rounded-lg shadow-md cursor-pointer w-full transition-all duration-300 ease-in-out"
       >
         {/* Title */}
         <div

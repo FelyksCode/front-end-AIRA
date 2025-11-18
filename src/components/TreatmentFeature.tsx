@@ -20,8 +20,8 @@ const TreatmentFeature = () => {
       <div className="p-6">
         <h3 className="text-2xl font-bold mb-4 text-white">Treatment</h3>
         <p className="text-base leading-relaxed mb-6 text-white">
-          Analyze and present a treatment plan that is appropriate to the
-          patient's current condition.
+          Analyze and present a treatment plan appropriate to the patient’s condition.
+The plan should integrate clinical findings, diagnostic results, and identified risk factors.
         </p>
 
         <button
