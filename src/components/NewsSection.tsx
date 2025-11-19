@@ -11,7 +11,7 @@ interface NewsItem {
   body: string;
   created_at: string;
   created_by: string;
-  objectUrl?: string;
+  objectUrl?: string | null;
 }
 
 const NewsSection: React.FC = () => {
@@ -21,52 +21,90 @@ const NewsSection: React.FC = () => {
   const baseUrl = import.meta.env.VITE_AI_BACKEND_URL;
 
   const loadImageAsBlobUrl = async (imageData: any) => {
-    if (!imageData) return null;
+    if (!imageData) {
+      console.log('No image data provided');
+      return null;
+    }
 
+    console.log('Processing image data:', typeof imageData, imageData);
+
+    // Handle Buffer data
     if (imageData?.type === "Buffer" && Array.isArray(imageData.data)) {
       try {
         const uint8 = new Uint8Array(imageData.data);
         const blob = new Blob([uint8], { type: "image/jpeg" });
-        return URL.createObjectURL(blob);
-      } catch {
+        const url = URL.createObjectURL(blob);
+        console.log('Created blob URL from buffer:', url);
+        return url;
+      } catch (error) {
+        console.error('Error creating blob from buffer:', error);
         return null;
       }
     }
 
+    // Handle string data
     if (typeof imageData === "string") {
+      // Check if it's already a blob URL or base64
+      if (imageData.startsWith('blob:') || imageData.startsWith('data:')) {
+        console.log('Using existing blob/data URL:', imageData);
+        return imageData;
+      }
+
+      // Handle file path
       const cleanPath = imageData.startsWith("/") ? imageData : `/${imageData}`;
       const fullUrl = `${baseUrl}${cleanPath}`;
+      console.log('Fetching image from URL:', fullUrl);
       try {
         const response = await fetch(fullUrl);
-        if (!response.ok) throw new Error("Image fetch failed");
+        if (!response.ok) throw new Error(`Image fetch failed: ${response.status}`);
         const blob = await response.blob();
-        return URL.createObjectURL(blob);
-      } catch {
+        const url = URL.createObjectURL(blob);
+        console.log('Created blob URL from fetch:', url);
+        return url;
+      } catch (error) {
+        console.error('Error fetching image:', error);
         return null;
       }
     }
 
+    // Handle direct blob object
+    if (imageData instanceof Blob) {
+      const url = URL.createObjectURL(imageData);
+      console.log('Created blob URL from blob object:', url);
+      return url;
+    }
+
+    console.warn('Unsupported image data format:', imageData);
     return null;
   };
 
   useEffect(() => {
     const loadNews = async () => {
       try {
+        console.log('Fetching news from:', `${baseUrl}/news`);
         const res = await fetch(`${baseUrl}/news`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
         const data: NewsItem[] = await res.json();
+        console.log('Received news data:', data.length, 'articles');
+        
         const processed = await Promise.all(
-          data.map(async (item) => {
+          data.map(async (item, index) => {
+            console.log(`Processing article ${index + 1}:`, item.title);
+
+            console.log(item.image_url)
+
             const blobUrl = await loadImageAsBlobUrl(item.image_url);
-            return { ...item, objectUrl: blobUrl ?? null };
+            return { ...item, objectUrl: blobUrl };
           })
         );
+        console.log('Processed articles with blob URLs:', processed.length);
         setNewsList(processed);
       } catch (err) {
         console.error("Gagal mengambil data berita:", err);
       }
     };
     loadNews();
-  }, []);
+  }, [baseUrl]);
 
   // Ambil kategori unik dari artikel + tambah opsi "all"
   const categories = ["all", ...Array.from(new Set(newsList.map(n => n.category)))];
@@ -89,11 +127,22 @@ const NewsSection: React.FC = () => {
         {headline && (
           <div className="max-w-6xl mx-auto mb-16">
             <div className="relative overflow-hidden rounded-2xl shadow-lg">
-              <img
-                src={headline.objectUrl ?? ""}
-                alt={headline.title}
-                className="w-full h-[380px] md:h-[460px] object-cover scale-105 group-hover:scale-100 transition duration-700"
-              />
+              {headline.objectUrl ? (
+                <img
+                  src={headline.objectUrl}
+                  alt={headline.title}
+                  className="w-full h-[380px] md:h-[460px] object-cover scale-105 group-hover:scale-100 transition duration-700"
+                  onError={(e) => {
+                    console.error('Headline image failed to load:', headline.objectUrl);
+                    e.currentTarget.style.display = 'none';
+                  }}
+                  onLoad={() => console.log('Headline image loaded successfully')}
+                />
+              ) : (
+                <div className="w-full h-[380px] md:h-[460px] bg-gray-200 flex items-center justify-center">
+                  <span className="text-gray-500">No image available</span>
+                </div>
+              )}
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
               <div className="absolute bottom-0 p-6 md:p-8 text-white z-10">
                 <h1 className="text-2xl md:text-4xl font-bold drop-shadow-md leading-snug">
@@ -142,11 +191,22 @@ const NewsSection: React.FC = () => {
               className="bg-white rounded-xl shadow-md hover:shadow-xl cursor-pointer overflow-hidden transition group"
             >
               <div className="relative overflow-hidden">
-                <img
-                  src={article.objectUrl ?? ""}
-                  alt={article.title}
-                  className="w-full h-52 object-cover group-hover:scale-105 transition duration-500"
-                />
+                {article.objectUrl ? (
+                  <img
+                    src={article.objectUrl}
+                    alt={article.title}
+                    className="w-full h-52 object-cover group-hover:scale-105 transition duration-500"
+                    onError={(e) => {
+                      console.error('Article image failed to load:', article.objectUrl);
+                      e.currentTarget.style.display = 'none';
+                    }}
+                    onLoad={() => console.log('Article image loaded successfully:', article.id)}
+                  />
+                ) : (
+                  <div className="w-full h-52 bg-gray-200 flex items-center justify-center">
+                    <span className="text-gray-500 text-sm">No image</span>
+                  </div>
+                )}
                 <span className="absolute top-3 right-3 text-xs px-3 py-1 rounded-full bg-pink-600 text-white shadow">
                   {article.category}
                 </span>
