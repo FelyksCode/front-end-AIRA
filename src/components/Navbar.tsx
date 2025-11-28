@@ -12,7 +12,7 @@ function Navbar() {
     { label: "Diagnosis", path: "/diagnosis" },
     { label: "Prognosis", path: "/prognosis" },
     { label: "Treatment", path: "/treatment" },
-    { label: "Informasi", path: "/news" },
+    { label: "News", path: "/news" },
   ];
 
   return (
@@ -39,11 +39,10 @@ function Navbar() {
               <li key={item.path}>
                 <Link
                   to={item.path}
-                  className={`transition-colors duration-200 ${
-                    isActive && !isHome
-                      ? "font-bold text-[#181852]"
-                      : "font-normal text-[#212129]"
-                  } hover:text-[#181852]`}
+                  className={`transition-colors duration-200 ${isActive && !isHome
+                    ? "font-bold text-[#181852]"
+                    : "font-normal text-[#212129]"
+                    } hover:text-[#181852]`}
                 >
                   {item.label}
                 </Link>

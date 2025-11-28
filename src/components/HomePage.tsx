@@ -23,13 +23,13 @@ function HomePage() {
       <DiagnosisCTA />
 
       {/* Feature Grid - Full Width */}
-    <div className="w-full py-6 px-2 md:px-4">
-  <div className="grid grid-cols-1 md:grid-cols-3 gap-2 items-stretch">
-    <DiagnosisFeature />
-    <PrognosisFeature />
-    <TreatmentFeature />
-  </div>
-</div>
+      <div className="w-full py-8 px-6 md:px-12 lg:px-16">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
+          <DiagnosisFeature />
+          <PrognosisFeature />
+          <TreatmentFeature />
+        </div>
+      </div>
 
       {/* Footer - Full Width */}
       <Footer />
