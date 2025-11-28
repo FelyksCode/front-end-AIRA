@@ -91,7 +91,7 @@ const Footer = () => {
             {/* ABOUT */}
             <div className="space-y-4">
               <img
-                src="/public/logo.png"
+                src="logo.png"
                 alt="AIRA Logo"
                 className="w-24 mb-2"
               />

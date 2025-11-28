@@ -20,7 +20,7 @@ const PrognosisFeature = () => {
       {/* Image with Zoom Effect */}
       <div className="relative overflow-hidden h-52 md:h-56">
         <img
-          src="/public/picture3.jpeg"
+          src="picture3.jpeg"
           alt="Prognosis"
           className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700"
         />

@@ -21,7 +21,7 @@ const DiagnosisFeature = () => {
       {/* Image with Zoom Effect */}
       <div className="relative overflow-hidden h-52 md:h-56">
         <img
-          src="/public/picture1.jpg"
+          src="picture1.jpg"
           alt="Diagnosis"
           className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700"
         />
