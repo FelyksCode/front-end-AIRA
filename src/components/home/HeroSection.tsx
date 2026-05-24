@@ -1,151 +1,127 @@
-import React, { useState, useEffect } from 'react';
+import { Link } from "react-router-dom";
+import { ArrowRight, ShieldCheck, Brain, FlaskConical } from "lucide-react";
 
-const images = [
-  'picture1.jpg',
-  'picture5.jpg',
-  'picture3.jpeg'
+const badges = [
+  { icon: ShieldCheck, text: "Clinically Validated" },
+  { icon: Brain,       text: "Multi-modal AI" },
+  { icon: FlaskConical,text: "50+ Cancer Types" },
 ];
 
-const HeroSection = () => {
-  const [currentIndex, setCurrentIndex] = useState(0);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % images.length);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const goToSlide = (index: number) => {
-    setCurrentIndex(index);
-  };
-
-  const getSlideStyle = (index: number) => {
-    const diff = index - currentIndex;
-
-    if (diff === 0) {
-      // CENTER - 40% BIGGER
-      return {
-        transform: 'translateX(-50%) scale(1.4)',
-        left: '50%',
-        zIndex: 30,
-        opacity: 1,
-        filter: 'brightness(1) blur(0px)'
-      };
-    } else if (diff === 1 || diff === -(images.length - 1)) {
-      // RIGHT
-      return {
-        transform: 'translateX(60%) scale(0.8)',
-        left: '50%',
-        zIndex: 20,
-        opacity: 0.6,
-        filter: 'brightness(0.7) blur(1px)'
-      };
-    } else if (diff === -1 || diff === images.length - 1) {
-      // LEFT
-      return {
-        transform: 'translateX(-160%) scale(0.8)',
-        left: '50%',
-        zIndex: 20,
-        opacity: 0.6,
-        filter: 'brightness(0.7) blur(1px)'
-      };
-    } else {
-      return {
-        transform: 'translateX(-50%) scale(0.5)',
-        left: '50%',
-        zIndex: 10,
-        opacity: 0,
-        filter: 'brightness(0.5) blur(2px)'
-      };
-    }
-  };
-
+export default function HeroSection() {
   return (
-    <section className="w-full pt-96 pb-24 min-h-[900px] bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50">
-      <div className="relative w-full max-w-7xl mx-auto px-4">
+    <section className="bg-white border-b border-slate-100">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 lg:py-24">
+        <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
 
-        {/* CAROUSEL - MOVED DOWN WAY MORE (80%) */}
-        <div className="relative w-full h-[520px]">
+          {/* Left — Text */}
+          <div className="space-y-8 animate-fadeIn">
+            <div>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full
+                bg-cyan-50 text-cyan-700 text-xs font-semibold border border-cyan-200">
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse-status" />
+                AI Clinical Decision Support
+              </span>
+            </div>
 
-          {/* SLIDES - NO ARROW BUTTONS */}
-          {images.map((img, index) => {
-            const style = getSlideStyle(index);
+            <div className="space-y-4">
+              <h1 className="text-4xl sm:text-5xl lg:text-5xl font-extrabold text-[#1E3A5F]
+                leading-[1.1] tracking-tight">
+                Precision Cancer<br />
+                <span className="text-cyan-600">Analysis</span> for<br />
+                Clinical Practice
+              </h1>
+              <p className="text-lg text-slate-600 leading-relaxed max-w-lg">
+                AIRA empowers clinicians with AI-assisted tools for cancer diagnosis,
+                prognosis prediction, and treatment planning — powered by
+                multi-modal machine learning.
+              </p>
+            </div>
 
-            return (
-              <div
-                key={index}
-                className="absolute top-1/2 -translate-y-1/2 w-[700px] h-[420px] transition-all duration-700 ease-out cursor-pointer"
-                style={{
-                  left: style.left,
-                  transform: `translateY(-50%) ${style.transform}`,
-                  zIndex: style.zIndex,
-                  opacity: style.opacity
-                }}
-                onClick={() => goToSlide(index)}
+            {/* CTAs */}
+            <div className="flex flex-wrap gap-3">
+              <Link
+                to="/diagnosis"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg
+                  bg-[#1E3A5F] text-white text-sm font-semibold
+                  hover:bg-[#1A3352] transition-colors duration-150"
               >
-                <div className="w-full h-full rounded-3xl overflow-hidden shadow-2xl">
-                  <img
-                    src={img}
-                    alt={`Slide ${index + 1}`}
-                    className="w-full h-full object-cover"
-                    style={{ filter: style.filter }}
-                  />
-                  {index !== currentIndex && (
-                    <div className="absolute inset-0 bg-white/40" />
-                  )}
+                Start Diagnosis
+                <ArrowRight size={16} />
+              </Link>
+              <Link
+                to="/news"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg
+                  border border-slate-300 text-slate-700 text-sm font-semibold
+                  hover:bg-slate-50 transition-colors duration-150"
+              >
+                Latest News
+              </Link>
+            </div>
+
+            {/* Trust Badges */}
+            <div className="flex flex-wrap gap-4 pt-2">
+              {badges.map(({ icon: Icon, text }) => (
+                <div key={text} className="flex items-center gap-2 text-sm text-slate-500">
+                  <Icon size={15} className="text-slate-400" />
+                  {text}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Right — Visual */}
+          <div className="relative lg:pl-8">
+            <div className="relative rounded-2xl overflow-hidden shadow-2xl">
+              <img
+                src="/picture1.jpg"
+                alt="Cancer Analysis Platform"
+                className="w-full h-80 lg:h-96 object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#1E3A5F]/70 via-transparent to-transparent" />
+
+              {/* Floating result card */}
+              <div className="absolute bottom-4 left-4 right-4">
+                <div className="bg-white/95 backdrop-blur-sm rounded-xl p-4 shadow-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                      AI Analysis Result
+                    </span>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full
+                      bg-green-100 text-green-700 text-xs font-semibold">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                      Complete
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    {[
+                      { label: "Prediction", value: "Stage I–II" },
+                      { label: "Confidence", value: "94.2%"     },
+                      { label: "Model",      value: "CNN + GBM"  },
+                    ].map(({ label, value }) => (
+                      <div key={label}>
+                        <p className="text-[10px] text-slate-400 font-medium">{label}</p>
+                        <p className="text-sm font-bold text-[#1E3A5F]">{value}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
-            );
-          })}
-        </div>
+            </div>
 
-        {/* THREE SIMPLE DOTS */}
-        <div className="flex justify-center items-center gap-2.5 mt-10">
-          <button
-            onClick={() => goToSlide(0)}
-            aria-label="Slide 1"
-            style={{
-              width: '10px',
-              height: '10px',
-              borderRadius: '50%',
-              backgroundColor: currentIndex === 0 ? '#3B82F6' : '#9CA3AF',
-              border: 'none',
-              padding: 0,
-              cursor: 'pointer'
-            }}
-          />
-          <button
-            onClick={() => goToSlide(1)}
-            aria-label="Slide 2"
-            style={{
-              width: '10px',
-              height: '10px',
-              borderRadius: '50%',
-              backgroundColor: currentIndex === 1 ? '#3B82F6' : '#9CA3AF',
-              border: 'none',
-              padding: 0,
-              cursor: 'pointer'
-            }}
-          />
-          <button
-            onClick={() => goToSlide(2)}
-            aria-label="Slide 3"
-            style={{
-              width: '10px',
-              height: '10px',
-              borderRadius: '50%',
-              backgroundColor: currentIndex === 2 ? '#3B82F6' : '#9CA3AF',
-              border: 'none',
-              padding: 0,
-              cursor: 'pointer'
-            }}
-          />
+            {/* Decorative stat pill */}
+            <div className="absolute -top-4 -right-4 hidden lg:flex items-center gap-2
+              bg-white rounded-xl px-4 py-2.5 shadow-lg border border-slate-100">
+              <div className="w-8 h-8 rounded-lg bg-cyan-50 flex items-center justify-center">
+                <Brain size={16} className="text-cyan-600" />
+              </div>
+              <div>
+                <p className="text-[10px] text-slate-400 font-medium">AI Models</p>
+                <p className="text-sm font-bold text-slate-800">Active</p>
+              </div>
+            </div>
+          </div>
         </div>
-
       </div>
     </section>
   );
-};
-
-export default HeroSection;
+}

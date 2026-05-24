@@ -1,399 +1,231 @@
-import React, { useState } from "react";
-import { useParams, useLocation, useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
-import { Upload, FileText, CheckCircle2, ArrowLeft, Trash2 } from "lucide-react";
-import Footer from "./Footer";
+﻿import React, { useState } from "react";
+import { useParams, useLocation, useNavigate, Link } from "react-router-dom";
+import { Upload, FileText, CheckCircle2, ArrowLeft, Trash2, ChevronRight, Home, Microscope, AlertCircle } from "lucide-react";
+import Footer from "../../components/layout/Footer";
 
 const UploadDiagnosis: React.FC = () => {
   const { cancerSlug } = useParams();
-  const location = useLocation();
-  const navigate = useNavigate();
-  const baseUrl = import.meta.env.VITE_AI_BACKEND_URL;
-
+  const location       = useLocation();
+  const navigate       = useNavigate();
+  const baseUrl        = import.meta.env.VITE_AI_BACKEND_URL;
   const { cancerName, datasetLabel } = location.state || {};
 
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [errorMessage, setErrorMessage] = useState("");
-  const [rawResponse, setRawResponse] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
+  const [file,         setFile]         = useState<File | null>(null);
+  const [error,        setError]        = useState("");
+  const [rawResponse,  setRawResponse]  = useState("");
+  const [loading,      setLoading]      = useState(false);
+  const [dragging,     setDragging]     = useState(false);
+  const [progress,     setProgress]     = useState(0);
+  const [elapsed,      setElapsed]      = useState(0);
 
-  const [loadingTime, setLoadingTime] = useState(0);
-  const [progressPercent, setProgressPercent] = useState(0);
-
-  // popup like DiagnosisSection
-  const [showPopup, setShowPopup] = useState(false);
-
-  const handleFileChange = (file: File | null) => {
-    setUploadedFile(file);
-    setErrorMessage("");
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = () => {
-    setIsDragging(false);
-  };
+  const handleFile = (f: File | null) => { setFile(f); setError(""); };
 
   const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file && file.name.endsWith('.csv')) {
-      handleFileChange(file);
-    }
+    e.preventDefault(); setDragging(false);
+    const f = e.dataTransfer.files?.[0];
+    if (f?.name.endsWith(".csv")) handleFile(f);
+    else setError("Only .csv files are supported.");
   };
 
   const handleSubmit = async () => {
-    setErrorMessage("");
-    setRawResponse("");
+    setError(""); setRawResponse("");
+    if (!file)            { setError("Please upload a .csv file."); return; }
+    if (!cancerSlug || !datasetLabel) { setError("Missing cancer or dataset info. Please go back."); return; }
+    if (file.type !== "text/csv" && !file.name.endsWith(".csv")) { setError("Invalid file type. Please upload a .csv file."); return; }
 
-    if (!uploadedFile) {
-      setErrorMessage("⚠️ Please upload a .csv file before continuing.");
-      setShowPopup(true);
-      return;
-    }
-
-    if (!cancerSlug || !datasetLabel) {
-      setErrorMessage("❗ Missing required cancer or dataset info.");
-      setShowPopup(true);
-      return;
-    }
-
-    if (uploadedFile.type !== "text/csv") {
-      setErrorMessage("❌ Invalid file type. Please upload a .csv file.");
-      setShowPopup(true);
-      return;
-    }
-
-    setIsLoading(true);
-    setLoadingTime(0);
-    setProgressPercent(0);
-
-    const url = `${baseUrl}/cancers/${cancerSlug}/predict`;
-    const formData = new FormData();
-    formData.append("ai_feature", "diagnosis");
-    formData.append("feature_key", datasetLabel);
-    formData.append("file", uploadedFile);
-
-    const startTime = Date.now();
+    setLoading(true); setProgress(0); setElapsed(0);
+    const start = Date.now();
     const timer = setInterval(() => {
-      const elapsed = Date.now() - startTime;
-      setLoadingTime(elapsed);
-      setProgressPercent(Math.min(100, (elapsed / 10000) * 100));
+      const t = Date.now() - start;
+      setElapsed(t);
+      setProgress(Math.min(95, (t / 12000) * 100));
     }, 500);
 
     try {
-      const res = await fetch(url, { method: "POST", body: formData });
+      const fd = new FormData();
+      fd.append("ai_feature",   "diagnosis");
+      fd.append("feature_key",  datasetLabel);
+      fd.append("file",         file);
+
+      const res  = await fetch(`${baseUrl}/cancers/${cancerSlug}/predict`, { method: "POST", body: fd });
       const text = await res.text();
-      clearInterval(timer);
+      clearInterval(timer); setProgress(100); setLoading(false);
 
-      setProgressPercent(100);
-      setIsLoading(false);
-      setRawResponse(text);
-
-      if (!res.ok) {
-        if (text.includes("Invalid CSV") || text.toLowerCase().includes("format")) {
-          setErrorMessage(
-            "❌ Invalid dataset format. Please upload a valid .csv file with correct headers."
-          );
-        } else {
-          setErrorMessage(text || "❌ Server error occurred.");
-        }
-        setShowPopup(true);
-        return;
-      }
+      if (!res.ok) { setError(text.includes("Invalid CSV") ? "Invalid CSV format. Please check your file headers." : text || "Server error."); setRawResponse(text); return; }
 
       try {
         const result = JSON.parse(text);
-        navigate("/result-diagnosis", {
-          state: { predictionResult: result, cancerName, datasetLabel },
-        });
+        navigate("/result-diagnosis", { state: { predictionResult: result, cancerName, datasetLabel } });
       } catch {
-        setErrorMessage("⚠️ Backend returned invalid JSON. Raw response shown below.");
-        setShowPopup(true);
+        setError("Server returned invalid JSON. Raw response shown below.");
+        setRawResponse(text);
       }
     } catch (err: any) {
-      clearInterval(timer);
-      setErrorMessage(err.message || "❌ Failed to submit prediction");
-      setIsLoading(false);
-      setShowPopup(true);
+      clearInterval(timer); setLoading(false);
+      setError(err.message || "Failed to submit prediction.");
     }
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-gradient-to-br from-[#f5f5f5] to-[#eaeefc]">
+    <div className="min-h-screen bg-slate-50 flex flex-col">
 
-      {/* ANIMATED LOADING BAR */}
-      <AnimatePresence>
-        {isLoading && (
-          <motion.div
-            initial={{ y: -100, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: -100, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 300, damping: 25 }}
-            className="fixed top-0 left-0 w-full bg-gradient-to-r from-[#191757] to-[#2a2680] text-white text-sm py-4 px-6 shadow-2xl z-50"
-          >
-            <div className="flex justify-between items-center mb-2">
-              <motion.span
-                animate={{ opacity: [1, 0.5, 1] }}
-                transition={{ repeat: Infinity, duration: 1.5 }}
-                className="font-semibold text-base"
-              >
-                ⏳ Generating diagnosis result...
-              </motion.span>
-              <span className="text-xs font-mono bg-white/20 px-3 py-1 rounded-full">
-                {Math.floor(loadingTime / 1000)}s
-              </span>
-            </div>
-            <div className="w-full bg-white/30 rounded-full h-2 overflow-hidden backdrop-blur-sm">
-              <motion.div
-                className="bg-gradient-to-r from-green-400 to-blue-400 h-2 rounded-full shadow-lg"
-                initial={{ width: "0%" }}
-                animate={{ width: `${progressPercent}%` }}
-                transition={{ duration: 0.3 }}
-              />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Loading bar */}
+      {loading && (
+        <div className="fixed top-0 left-0 w-full z-50 bg-[#1E3A5F] text-white px-4 py-3 shadow-lg">
+          <div className="max-w-7xl mx-auto flex items-center justify-between mb-2 text-sm">
+            <span className="font-medium animate-pulse-status">Processing dataset...</span>
+            <span className="font-mono text-xs bg-white/20 px-2 py-0.5 rounded">
+              {Math.floor(elapsed / 1000)}s
+            </span>
+          </div>
+          <div className="max-w-7xl mx-auto h-1.5 bg-white/20 rounded-full overflow-hidden">
+            <div className="h-full bg-cyan-400 rounded-full transition-all duration-300"
+              style={{ width: `${progress}%` }} />
+          </div>
+        </div>
+      )}
 
-      <main className="flex flex-1 items-center justify-center py-12 px-6">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ type: "spring", stiffness: 200, damping: 20 }}
-          className="bg-white rounded-2xl shadow-2xl border border-[#d6d6f0] p-10 w-full max-w-5xl"
-        >
-          <motion.h2
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#191757] to-[#2a2680] text-center mb-4"
-          >
-            Upload Dataset
-          </motion.h2>
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.2 }}
-            className="text-center text-gray-600 mb-8 text-sm"
-          >
-            Upload input dataset file for diagnosis prediction
-          </motion.p>
+      {/* Breadcrumb */}
+      <div className="bg-white border-b border-slate-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+          <nav className="flex items-center gap-1.5 text-xs text-slate-500">
+            <Link to="/" className="flex items-center gap-1 hover:text-slate-700"><Home size={12} /> Home</Link>
+            <ChevronRight size={12} />
+            <Link to="/diagnosis" className="hover:text-slate-700">Diagnosis</Link>
+            <ChevronRight size={12} />
+            <span className="text-slate-800 font-medium">Upload Dataset</span>
+          </nav>
+        </div>
+      </div>
 
-          <div className="space-y-6">
-            {/* Info Card */}
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.3, type: "spring", stiffness: 200 }}
-              className="text-sm text-gray-700 bg-gradient-to-br from-[#f0f4ff] to-[#e8f0ff] p-5 rounded-xl border border-[#cdd5f5] shadow-sm"
-            >
-              <div className="space-y-2">
-                <p className="flex items-center gap-2">
-                  <span className="font-semibold text-[#191757]">Cancer Type:</span>
-                  <span className="text-gray-800">{cancerName || "Unknown"}</span>
-                </p>
-                <p className="flex items-center gap-2">
-                  <span className="font-semibold text-[#191757]">AI Feature:</span>
-                  <span className="text-gray-800">Diagnosis</span>
-                </p>
-                <p className="flex items-center gap-2">
-                  <span className="font-semibold text-[#191757]">Dataset Key:</span>
-                  <span className="text-gray-800">{datasetLabel || "No dataset added here"}</span>
-                </p>
+      <main className="flex-1 flex items-start justify-center px-4 py-10">
+        <div className="w-full max-w-2xl animate-fadeIn">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8">
+
+            {/* Header */}
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center">
+                <Microscope size={20} className="text-[#1E3A5F]" />
               </div>
-            </motion.div>
+              <div>
+                <h1 className="text-xl font-bold text-[#1E3A5F]">Upload Dataset</h1>
+                <p className="text-xs text-slate-500">Diagnosis — Step 2 of 3</p>
+              </div>
+            </div>
 
-            {/* Upload Area */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.4, type: "spring", stiffness: 200 }}
-            >
-              <label className="block font-semibold mb-3 text-[#191757] text-lg">
-                Upload File (.csv)
+            {/* Step indicator */}
+            <div className="flex items-center gap-2 mb-8">
+              {["Parameters", "Upload", "Results"].map((step, i) => (
+                <React.Fragment key={step}>
+                  <div className="flex items-center gap-1.5">
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold
+                      ${i < 1 ? "bg-green-500 text-white" : i === 1 ? "bg-[#1E3A5F] text-white" : "bg-slate-100 text-slate-400"}`}>
+                      {i < 1 ? <CheckCircle2 size={14} /> : i + 1}
+                    </div>
+                    <span className={`text-xs ${i === 1 ? "text-[#1E3A5F] font-medium" : i < 1 ? "text-green-600" : "text-slate-400"}`}>{step}</span>
+                  </div>
+                  {i < 2 && <div className="flex-1 h-px bg-slate-200" />}
+                </React.Fragment>
+              ))}
+            </div>
+
+            {/* Session info */}
+            <div className="grid sm:grid-cols-3 gap-3 mb-6 p-4 bg-slate-50 rounded-xl border border-slate-200">
+              {[
+                { label: "Cancer Type",  value: cancerName   || "—" },
+                { label: "AI Feature",   value: "Diagnosis"          },
+                { label: "Dataset Key",  value: datasetLabel || "—" },
+              ].map(({ label, value }) => (
+                <div key={label}>
+                  <p className="text-xs text-slate-400 font-medium mb-0.5">{label}</p>
+                  <p className="text-sm font-semibold text-slate-800 truncate">{value}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Drop zone */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-3">
+                Upload File <span className="text-slate-400 font-normal">(.csv)</span>
               </label>
-
-              <motion.div
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
+              <div
+                onDragOver={e => { e.preventDefault(); setDragging(true); }}
+                onDragLeave={() => setDragging(false)}
                 onDrop={handleDrop}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className={`relative border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all duration-300 ${isDragging
-                  ? "border-[#191757] bg-blue-50 shadow-lg scale-105"
-                  : uploadedFile
-                    ? "border-green-400 bg-green-50"
-                    : "border-[#b0b0d0] bg-gradient-to-br from-gray-50 to-blue-50 hover:border-[#191757] hover:shadow-md"
-                  }`}
+                className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200
+                  ${dragging ? "border-cyan-400 bg-cyan-50"
+                    : file    ? "border-green-400 bg-green-50"
+                              : "border-slate-300 bg-slate-50 hover:border-slate-400 hover:bg-white"}`}
               >
-                <input
-                  type="file"
-                  accept=".csv"
-                  onChange={(e) => handleFileChange(e.target.files?.[0] || null)}
-                  className="hidden"
-                  id="fileUpload"
-                />
+                <input type="file" accept=".csv" id="fileUpload" className="hidden"
+                  onChange={e => handleFile(e.target.files?.[0] || null)} />
                 <label htmlFor="fileUpload" className="cursor-pointer block">
-                  <div className="flex flex-col items-center gap-4">
-                    <motion.div
-                      animate={{
-                        y: uploadedFile ? 0 : [0, -10, 0],
-                        rotate: uploadedFile ? 0 : [0, 5, -5, 0],
-                      }}
-                      transition={{
-                        duration: 2,
-                        repeat: uploadedFile ? 0 : Infinity,
-                        ease: "easeInOut",
-                      }}
-                    >
-                      {uploadedFile ? (
-                        <CheckCircle2 className="w-16 h-16 text-green-500" />
-                      ) : (
-                        <Upload className="w-16 h-16 text-[#191757]" />
-                      )}
-                    </motion.div>
-
+                  <div className="flex flex-col items-center gap-3">
+                    {file
+                      ? <CheckCircle2 size={40} className="text-green-500" />
+                      : <Upload size={40} className="text-slate-400" />
+                    }
                     <div>
-                      <p className="text-[#191757] font-semibold text-lg mb-1">
-                        {uploadedFile ? "File uploaded successfully!" : "Click to browse or drag & drop"}
+                      <p className="text-sm font-medium text-slate-700">
+                        {file ? "File ready — click to change" : "Click to browse or drag & drop"}
                       </p>
-                      <p className="text-xs text-gray-500">
-                        Only .csv files are supported
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Only .csv files · Max 50MB
                       </p>
                     </div>
                   </div>
                 </label>
 
-                {/* File Preview */}
-                <AnimatePresence>
-                  {uploadedFile && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 20, scale: 0.9 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -20, scale: 0.9 }}
-                      transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                      className="mt-6 p-4 bg-white rounded-xl shadow-md border border-green-200"
-                    >
-                      <div className="flex items-center gap-3">
-                        <FileText className="w-10 h-10 text-green-600" />
-                        <div className="flex-1 text-left">
-                          <p className="font-semibold text-gray-800">{uploadedFile.name}</p>
-                          <p className="text-xs text-gray-500">
-                            {(uploadedFile.size / 1024).toFixed(2)} KB
-                          </p>
-                        </div>
-                        <motion.button
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            handleFileChange(null);
-                          }}
-                          className="p-2 bg-red-500 hover:bg-red-600 rounded-lg transition-colors"
-                          title="Remove file"
-                        >
-                          <Trash2 className="w-5 h-5 text-white" />
-                        </motion.button>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </motion.div>
-            </motion.div>
-
-            {/* Buttons */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5 }}
-              className="flex justify-center mt-8 gap-4"
-            >
-              <motion.button
-                whileHover={{ scale: 1.05, x: -5 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => navigate(-1)}
-                className="px-8 py-3 bg-gray-300 hover:bg-gray-400 text-black font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
-              >
-                <ArrowLeft className="w-5 h-5" />
-                Back
-              </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={handleSubmit}
-                disabled={isLoading}
-                className={`px-8 py-3 font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all ${isLoading
-                  ? "bg-gray-400 cursor-not-allowed"
-                  : "bg-[#191757] hover:bg-[#2a2680] text-white"
-                  }`}
-              >
-                {isLoading ? "Processing..." : "Continue"}
-              </motion.button>
-            </motion.div>
-
-            {/* Raw Response */}
-            <AnimatePresence>
-              {rawResponse && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="overflow-hidden"
-                >
-                  <div className="mt-8 p-6 border-2 border-red-300 rounded-xl bg-gradient-to-br from-red-50 to-red-100 shadow-lg">
-                    <h3 className="font-bold mb-3 text-red-700 text-lg">Raw Server Response</h3>
-                    <pre className="text-sm text-red-800 whitespace-pre-wrap bg-white/50 p-4 rounded-lg">
-                      {rawResponse}
-                    </pre>
+                {file && (
+                  <div className="mt-5 flex items-center gap-3 p-3 bg-white rounded-lg border border-green-200 shadow-sm">
+                    <FileText size={18} className="text-green-600 shrink-0" />
+                    <div className="flex-1 text-left min-w-0">
+                      <p className="text-sm font-medium text-slate-800 truncate">{file.name}</p>
+                      <p className="text-xs text-slate-400">{(file.size / 1024).toFixed(1)} KB</p>
+                    </div>
+                    <button onClick={e => { e.preventDefault(); handleFile(null); }}
+                      className="p-1.5 rounded-lg bg-red-100 hover:bg-red-200 text-red-600 transition-colors"
+                      title="Remove file">
+                      <Trash2 size={14} />
+                    </button>
                   </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        </motion.div>
-      </main>
-
-      <Footer />
-
-      {/* Error Popup with Animation */}
-      <AnimatePresence>
-        {showPopup && errorMessage && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
-          >
-            <motion.div
-              initial={{ scale: 0.8, y: 50 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.8, y: 50 }}
-              transition={{ type: "spring", stiffness: 300, damping: 25 }}
-              className="bg-white border-l-4 border-red-600 rounded-xl p-6 shadow-2xl max-w-sm w-full mx-4"
-            >
-              <h3 className="text-xl font-bold text-red-700 mb-3">Error</h3>
-              <p className="text-red-600 mb-6">{errorMessage}</p>
-              <div className="flex justify-center">
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setShowPopup(false)}
-                  className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-md font-semibold"
-                >
-                  Close
-                </motion.button>
+                )}
               </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            </div>
 
+            {/* Error */}
+            {error && (
+              <div className="mt-4 flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                <AlertCircle size={16} className="shrink-0 mt-0.5" /> {error}
+              </div>
+            )}
+
+            {/* Raw response */}
+            {rawResponse && (
+              <div className="mt-4 p-4 bg-slate-100 rounded-lg border border-slate-200">
+                <p className="text-xs font-semibold text-slate-600 mb-2">Raw Server Response</p>
+                <pre className="text-xs text-slate-700 whitespace-pre-wrap break-all">{rawResponse}</pre>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex gap-3 mt-6">
+              <button onClick={() => navigate(-1)}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-slate-300
+                  text-slate-700 text-sm font-medium hover:bg-slate-50 transition-colors">
+                <ArrowLeft size={16} /> Back
+              </button>
+              <button onClick={handleSubmit} disabled={loading}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg
+                  bg-[#1E3A5F] text-white text-sm font-semibold hover:bg-[#1A3352]
+                  disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                {loading ? "Processing..." : <><Upload size={16} /> Run Analysis</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      </main>
+      <Footer />
     </div>
   );
 };

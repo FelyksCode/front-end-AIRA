@@ -1,8 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import Footer from './Footer';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
+import React, { useState } from "react";
+import { useLocation, useNavigate, Link } from "react-router-dom";
+import {
+  ChevronRight, Home, Microscope, AlertTriangle, CheckCircle,
+  Download, ArrowLeft, ChevronDown, ShieldCheck, Info, Loader2,
+} from "lucide-react";
+import Footer from "../../components/layout/Footer";
+import jsPDF from "jspdf";
 
 type PredictionResult = {
   prediction: number;
@@ -10,394 +13,508 @@ type PredictionResult = {
   top_features?: Array<{ name: string; importance: number }>;
 };
 
+/* ── helpers ──────────────────────────────────────────────── */
+const DISCLAIMER =
+  "The Analysis Summary, Clinical Recommendations, and Diagnostic Checklist shown below are " +
+  "preliminary placeholder content generated for UI demonstration purposes only. " +
+  "They do NOT reflect a validated clinical AI output. " +
+  "Only the Predicted Stage, Model Confidence, and Cancer Type above are derived directly from the AI model.";
+
+/* ── ASCII-safe text helper ───────────────────────────────── */
+// jsPDF Helvetica only covers Latin-1. Strip every non-Latin-1 char
+// (em-dash, en-dash, smart quotes, emoji, etc.) before passing to doc.text().
+function safe(str: string): string {
+  return str
+    .replace(/–|—/g, "-")   // en-dash / em-dash  ->  hyphen
+    .replace(/[‘’]/g, "'")  // smart single quotes -> apostrophe
+    .replace(/[“”]/g, '"')  // smart double quotes -> straight quote
+    .replace(/[^\x00-\xFF]/g, "");    // drop anything outside Latin-1
+}
+
+/* ── PDF generator (text-based, no screenshot) ───────────── */
+function buildPDF(params: {
+  cancerName: string;
+  datasetLabel: string;
+  stageLabel: string;
+  confidence: string;
+  isAdvanced: boolean;
+  topFeatures: Array<{ name: string; importance: number }>;
+}) {
+  const { cancerName, datasetLabel, stageLabel, confidence, isAdvanced, topFeatures } = params;
+  const doc = new jsPDF("p", "mm", "a4");
+  const W   = doc.internal.pageSize.getWidth();   // 210 mm
+  const DATE = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
+
+  // ── Navy header bar ──────────────────────────────────────
+  doc.setFillColor(30, 58, 95);
+  doc.rect(0, 0, W, 28, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(16);
+  doc.setFont("helvetica", "bold");
+  doc.text("AIRA - AI Diagnostic Report", 14, 12);
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "normal");
+  doc.text(`Generated: ${DATE}`, 14, 20);
+  doc.text(safe(`${cancerName}  |  ${datasetLabel}`), 14, 25);
+
+  // ── Disclaimer banner ────────────────────────────────────
+  doc.setFillColor(255, 251, 235);
+  doc.setDrawColor(217, 119, 6);
+  doc.roundedRect(10, 33, W - 20, 22, 2, 2, "FD");
+  doc.setTextColor(120, 60, 0);
+  doc.setFontSize(7.5);
+  doc.setFont("helvetica", "bold");
+  doc.text("[!] PRELIMINARY DATA NOTICE", 14, 41);
+  doc.setFont("helvetica", "normal");
+  const disclaimerLines = doc.splitTextToSize(
+    "Sections labelled [SIMULATED] contain placeholder content for demonstration only. " +
+    "Only Predicted Stage, Confidence, and Cancer Type are live AI outputs.",
+    W - 28
+  );
+  doc.text(disclaimerLines, 14, 47);
+
+  // ── Verified AI Output section ───────────────────────────
+  let y = 62;
+  doc.setFillColor(240, 249, 255);
+  doc.setDrawColor(186, 230, 253);
+  doc.roundedRect(10, y, W - 20, 32, 2, 2, "FD");
+
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(30, 58, 95);
+  doc.text("[VERIFIED] AI MODEL OUTPUT", 14, y + 7);
+
+  // col 1 — stage
+  doc.setFontSize(7.5);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(100, 116, 139);
+  doc.text("Predicted Stage", 14, y + 15);
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(isAdvanced ? 185 : 22, isAdvanced ? 28 : 163, isAdvanced ? 28 : 74);
+  doc.text(safe(stageLabel), 14, y + 23);
+
+  // col 2 — confidence
+  doc.setFontSize(7.5);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(100, 116, 139);
+  doc.text("Model Confidence", 82, y + 15);
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(15, 23, 42);
+  doc.text(`${confidence}%`, 82, y + 23);
+
+  // col 3 — cancer type
+  doc.setFontSize(7.5);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(100, 116, 139);
+  doc.text("Cancer Type", 148, y + 15);
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(15, 23, 42);
+  doc.text(safe(cancerName || "-"), 148, y + 23);
+
+  y += 40;
+
+  // ── Top biomarkers (if present) ──────────────────────────
+  if (topFeatures.length > 0) {
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(30, 58, 95);
+    doc.text("Top Contributing Biomarkers", 14, y);
+    y += 7;
+    topFeatures.slice(0, 5).forEach((f) => {
+      const pct = Math.min(f.importance * 100, 100);
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(51, 65, 85);
+      doc.text(safe(f.name), 14, y);
+      doc.setFontSize(7);
+      doc.setTextColor(148, 163, 184);
+      doc.text(`${pct.toFixed(1)}%`, W - 14, y, { align: "right" });
+      // bar track
+      doc.setFillColor(226, 232, 240);
+      doc.roundedRect(14, y + 1.5, W - 28, 2.5, 1, 1, "F");
+      // bar fill
+      doc.setFillColor(30, 58, 95);
+      doc.roundedRect(14, y + 1.5, ((W - 28) * pct) / 100, 2.5, 1, 1, "F");
+      y += 10;
+    });
+    y += 4;
+  }
+
+  // ── Placeholder sections ─────────────────────────────────
+  const placeholderSections = [
+    {
+      title: "Analysis Summary  [SIMULATED]",
+      body: isAdvanced
+        ? `AI analysis detected patterns consistent with advanced-stage ${cancerName || "cancer"}, including elevated biomarker activity and potential multi-site involvement. This text is a placeholder and does not represent a validated clinical finding.`
+        : `AI analysis indicates patterns consistent with early-stage ${cancerName || "cancer"}, characterised by localised findings and lower high-risk biomarker expression. This text is a placeholder and does not represent a validated clinical finding.`,
+    },
+    {
+      title: "Recommended Clinical Actions  [SIMULATED]",
+      body: isAdvanced
+        ? "1. Advanced staging imaging (PET-CT / CT)\n2. Tumor board multidisciplinary review\n3. Biopsy and molecular profiling\n4. Systemic therapy evaluation"
+        : "1. Confirmatory biopsy and pathology review\n2. Standard staging imaging\n3. Molecular biomarker testing\n4. Early intervention planning",
+    },
+  ];
+
+  placeholderSections.forEach(({ title, body }) => {
+    if (y > 245) { doc.addPage(); y = 20; }
+    // divider line
+    doc.setDrawColor(226, 232, 240);
+    doc.line(14, y, W - 14, y);
+    y += 7;
+    doc.setFontSize(8.5);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(71, 85, 105);
+    doc.text(safe(title), 14, y);
+    y += 6;
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100, 116, 139);
+    const lines = doc.splitTextToSize(safe(body), W - 28);
+    doc.text(lines, 14, y);
+    y += lines.length * 5 + 8;
+  });
+
+  // ── Footer bar ───────────────────────────────────────────
+  const pageCount = (doc as any).internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFillColor(30, 58, 95);
+    doc.rect(0, 284, W, 13, "F");
+    doc.setFontSize(7);
+    doc.setTextColor(148, 163, 184);
+    doc.setFont("helvetica", "normal");
+    doc.text("AIRA - AI Research & Analysis Platform | Universitas Multimedia Nusantara", 14, 291);
+    doc.text("AI results must be validated by a licensed clinician.", W - 14, 291, { align: "right" });
+  }
+
+  return doc;
+}
+
+/* ── Component ────────────────────────────────────────────── */
 const ResultDiagnosis: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const [isVisible, setIsVisible] = useState(false);
-  const [expandedSection, setExpandedSection] = useState<string | null>(null);
+  const [expanded,   setExpanded]   = useState<string | null>(null);
+  const [exporting,  setExporting]  = useState(false);
 
-  const {
-    predictionResult,
-    cancerName,
-    datasetLabel,
-  } = (location.state as {
-    predictionResult?: PredictionResult;
-    cancerName?: string;
-    datasetLabel?: string;
-  }) || {};
-
-  useEffect(() => {
-    setIsVisible(true);
-  }, []);
+  const { predictionResult, cancerName, datasetLabel } =
+    (location.state as { predictionResult?: PredictionResult; cancerName?: string; datasetLabel?: string }) || {};
 
   if (!predictionResult) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 px-4">
-        <div className="animate-fade-in bg-white backdrop-blur-lg rounded-2xl p-8 shadow-2xl border border-blue-200">
-          <p className="text-red-600 text-lg font-semibold mb-4">
-            ⚠️ No prediction data found. Please upload a dataset first.
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 text-center max-w-sm w-full">
+          <AlertTriangle size={40} className="text-amber-500 mx-auto mb-4" />
+          <h2 className="text-lg font-bold text-slate-900 mb-2">No Data Found</h2>
+          <p className="text-sm text-slate-500 mb-6">
+            No prediction data available. Please upload a dataset first.
           </p>
-          <button
-            onClick={() => navigate(-1)}
-            className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all transform hover:scale-105 shadow-lg"
-          >
-            ← Back to Upload
+          <button onClick={() => navigate(-1)}
+            className="w-full py-2.5 rounded-lg bg-[#1E3A5F] text-white text-sm font-semibold
+              hover:bg-[#1A3352] transition-colors">
+            Back to Upload
           </button>
         </div>
       </div>
     );
   }
 
-  const isAdvanced = predictionResult.prediction === 1;
-  const stageLabel = isAdvanced
-    ? 'Advanced stage (likely stage III–IV patterns)'
-    : 'Early stage (likely stage I–II patterns)';
-
-  const confidenceValue =
-    typeof predictionResult.probability === 'number'
-      ? predictionResult.probability * 100
-      : 0;
-
-  const confidence = `${confidenceValue.toFixed(2)}%`;
+  const isAdvanced  = predictionResult.prediction === 1;
+  const confidence  = typeof predictionResult.probability === "number"
+    ? (predictionResult.probability * 100).toFixed(1) : "N/A";
+  const stageLabel  = isAdvanced ? "Advanced Stage (III–IV)" : "Early Stage (I–II)";
+  const stageColor  = isAdvanced ? "text-red-600" : "text-green-600";
+  const stageBg     = isAdvanced ? "bg-red-50 border-red-200" : "bg-green-50 border-green-200";
+  const stageBadge  = isAdvanced ? "bg-red-100 text-red-700 border-red-200" : "bg-green-100 text-green-700 border-green-200";
 
   const summary = isAdvanced
-    ? `AI suggests patterns consistent with advanced ${cancerName || 'cancer'}: dataset features indicate increased tumor burden, potential lymph node involvement, and more complex molecular signatures.`
-    : `AI indicates a pattern consistent with early-stage ${cancerName || 'cancer'}, showing predominantly localized abnormalities with lower high-risk biomarker activity.`;
+    ? `AI analysis detected patterns consistent with advanced-stage ${cancerName || "cancer"}, including elevated biomarker activity and potential multi-site involvement.`
+    : `AI analysis indicates patterns consistent with early-stage ${cancerName || "cancer"}, characterised by localised findings and lower high-risk biomarker expression.`;
 
-  const interpretation = isAdvanced
-    ? `• Higher likelihood of lymphatic spread or distant metastatic signals.\n• Molecular profile suggests reduced suitability for local-only therapy.\n• Clinical implication: comprehensive staging and multidisciplinary evaluation recommended.`
-    : `• Pattern aligns with lower tumor burden and localized disease.\n• Biomarker profile may support organ-preserving strategies.\n• Clinical implication: high chance of curative management if confirmed early.`;
+  const clinicalActions = isAdvanced
+    ? ["Advanced staging imaging (PET-CT / CT)", "Tumor board multidisciplinary review", "Biopsy and molecular profiling", "Systemic therapy evaluation"]
+    : ["Confirmatory biopsy and pathology review", "Standard staging imaging", "Molecular biomarker testing", "Early intervention planning"];
 
-  const recommendedAction = isAdvanced
-    ? `Immediate oncologic evaluation: advanced imaging (CT / PET-CT), biopsy, pathology review, and tumor board assessment. AI confidence: ${confidence}, but must be clinically validated.`
-    : `Confirmatory diagnostics recommended: imaging, biopsy, and molecular testing if needed. Early-stage cases often qualify for curative interventions.`;
-
-  // PDF Export
   const handleExportPDF = async () => {
-    const input = document.getElementById("diagnosis-report");
-    if (!input) return;
-
+    setExporting(true);
     try {
-      const canvas = await html2canvas(input, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: false,
-        backgroundColor: "#f0f4ff",
+      const doc = buildPDF({
+        cancerName:   cancerName  || "Unknown",
+        datasetLabel: datasetLabel || "Unknown",
+        stageLabel,
+        confidence,
+        isAdvanced,
+        topFeatures:  predictionResult.top_features || [],
       });
-
-      const pdf = new jsPDF("p", "mm", "a4");
-      const imgData = canvas.toDataURL("image/png");
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const imgHeight = (canvas.height * pageWidth) / canvas.width;
-      pdf.addImage(imgData, "PNG", 0, 0, pageWidth, imgHeight);
-      pdf.save(`${cancerName || "diagnosis"}-report.pdf`);
-    } catch (err) {
-      console.error("PDF Export Error:", err);
+      doc.save(`AIRA-${(cancerName || "diagnosis").replace(/\s+/g, "-")}-report.pdf`);
+    } finally {
+      setExporting(false);
     }
   };
 
-  const renderTopFeatures = () => {
-    if (!predictionResult.top_features?.length) return null;
-
-    return (
-      <div className="mt-6 animate-slide-up" style={{ animationDelay: '0.4s' }}>
-        <h5 className="font-semibold mb-3 text-gray-800 flex items-center gap-2">
-          <span className="text-2xl">🔬</span>
-          Top Contributing Features
-        </h5>
-        <div className="space-y-2">
-          {predictionResult.top_features.map((f, i) => (
-            <div
-              key={i}
-              className="bg-blue-50 rounded-lg p-3 border border-blue-200 hover:bg-blue-100 transition-all transform hover:scale-[1.02]"
-              style={{ animationDelay: `${0.5 + i * 0.1}s` }}
-            >
-              <div className="flex justify-between items-center">
-                <span className="font-medium text-blue-800">{f.name}</span>
-                <span className="text-sm text-gray-600">
-                  Importance: {f.importance.toFixed(3)}
-                </span>
-              </div>
-              <div className="mt-2 h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all duration-1000"
-                  style={{ width: `${Math.min(f.importance * 100, 100)}%` }}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  };
+  /* ── Placeholder section badge ──────────────────────────── */
+  const PlaceholderBadge = () => (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full
+      bg-amber-100 text-amber-700 text-[10px] font-semibold border border-amber-200">
+      <Info size={9} /> Simulated Data
+    </span>
+  );
 
   return (
-    <div
-      id="diagnosis-report"
-      className="flex flex-col min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 relative overflow-hidden"
-    >
-      {/* Animated Background Elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 left-10 w-72 h-72 bg-blue-200/30 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-20 right-10 w-96 h-96 bg-purple-200/30 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
-        <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-pink-200/30 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
+    <div className="min-h-screen bg-slate-50 flex flex-col">
+
+      {/* Breadcrumb */}
+      <div className="bg-white border-b border-slate-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+          <nav className="flex items-center gap-1.5 text-xs text-slate-500">
+            <Link to="/" className="flex items-center gap-1 hover:text-slate-700"><Home size={12} /> Home</Link>
+            <ChevronRight size={12} />
+            <Link to="/diagnosis" className="hover:text-slate-700">Diagnosis</Link>
+            <ChevronRight size={12} />
+            <span className="text-slate-800 font-medium">Results</span>
+          </nav>
+        </div>
       </div>
 
-      <main className="flex-1 container mx-auto px-4 sm:px-6 py-8 sm:py-12 relative z-10">
-        {/* MAIN CONTAINER */}
-        <div
-          className={`bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-blue-100 p-6 sm:p-10 max-w-6xl mx-auto transition-all duration-1000 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
-            }`}
-        >
-          {/* Header */}
-          <div className="text-center mb-8 animate-fade-in">
-            <div className="inline-block mb-4">
-              <div className="text-6xl animate-bounce-slow">🏥</div>
-            </div>
-            <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-3">
-              AI-Assisted Diagnostic Report
-            </h1>
-            <p className="text-gray-600 text-sm sm:text-base flex items-center justify-center gap-2">
-              <span className="inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-              Powered by medical-grade machine learning analysis
+      <main className="flex-1 px-4 py-10">
+        <div className="max-w-5xl mx-auto space-y-5 animate-fadeIn">
+
+          {/* ── Global disclaimer banner ──────────────────── */}
+          <div className="flex items-start gap-3 px-4 py-3.5 rounded-xl
+            bg-amber-50 border border-amber-200 text-amber-800">
+            <AlertTriangle size={16} className="shrink-0 mt-0.5 text-amber-600" />
+            <p className="text-xs leading-relaxed">
+              <strong className="font-semibold">Preliminary Data Notice — </strong>
+              {DISCLAIMER}
             </p>
           </div>
 
-          {/* Status Card */}
-          <div className="mb-8 p-6 rounded-2xl bg-gradient-to-br from-blue-100 to-purple-100 border border-blue-200 shadow-xl backdrop-blur-md animate-slide-up">
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div className="space-y-3">
-                <div className="flex items-start gap-3">
-                  <span className="text-2xl">🔬</span>
-                  <div>
-                    <p className="text-gray-600 text-sm">Cancer Type</p>
-                    <p className="text-gray-900 font-bold text-lg">{cancerName}</p>
-                  </div>
+          {/* ── Header card ───────────────────────────────── */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center">
+                  <Microscope size={20} className="text-[#1E3A5F]" />
                 </div>
-                <div className="flex items-start gap-3">
-                  <span className="text-2xl">📊</span>
-                  <div>
-                    <p className="text-gray-600 text-sm">Dataset</p>
-                    <p className="text-gray-900 font-semibold">{datasetLabel}</p>
-                  </div>
+                <div>
+                  <h1 className="text-xl font-bold text-[#1E3A5F]">AI Diagnostic Report</h1>
+                  <p className="text-xs text-slate-500">
+                    {cancerName} · {datasetLabel} · {new Date().toLocaleDateString("en-GB")}
+                  </p>
                 </div>
               </div>
-              <div className="space-y-3">
-                <div className="flex items-start gap-3">
-                  <span className="text-2xl">{isAdvanced ? '⚠️' : '✅'}</span>
-                  <div>
-                    <p className="text-gray-600 text-sm">Predicted Stage</p>
-                    <p className={`font-bold text-lg ${isAdvanced ? 'text-red-600' : 'text-green-600'}`}>
-                      {stageLabel}
-                    </p>
-                  </div>
+              <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold border ${stageBadge}`}>
+                {isAdvanced ? <AlertTriangle size={14} /> : <CheckCircle size={14} />}
+                {stageLabel}
+              </span>
+            </div>
+          </div>
+
+          {/* ── Key metrics — VERIFIED AI OUTPUT ──────────── */}
+          <div className={`rounded-2xl border p-6 ${stageBg}`}>
+            {/* Verified badge */}
+            <div className="flex items-center gap-2 mb-4">
+              <ShieldCheck size={14} className="text-[#1E3A5F]" />
+              <span className="text-xs font-semibold text-[#1E3A5F] uppercase tracking-wider">
+                Verified AI Model Output
+              </span>
+            </div>
+            <div className="grid sm:grid-cols-3 gap-6">
+              <div>
+                <p className="text-xs text-slate-500 font-medium mb-1">Predicted Stage</p>
+                <p className={`text-2xl font-bold ${stageColor}`}>{stageLabel}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500 font-medium mb-1">Model Confidence</p>
+                <p className="text-2xl font-bold text-slate-900">{confidence}%</p>
+                <div className="mt-2 h-2 bg-white/60 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full ${isAdvanced ? "bg-red-500" : "bg-green-500"}`}
+                    style={{ width: `${confidence}%` }}
+                  />
                 </div>
-                <div className="flex items-start gap-3">
-                  <span className="text-2xl">📈</span>
-                  <div className="flex-1">
-                    <p className="text-gray-600 text-sm mb-2">Model Confidence</p>
-                    <div className="flex items-center gap-3">
-                      <div className="flex-1 h-3 bg-gray-200 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-full transition-all duration-1000 animate-pulse-slow"
-                          style={{ width: `${confidenceValue}%` }}
-                        />
-                      </div>
-                      <span className="text-gray-900 font-bold text-lg">{confidence}</span>
-                    </div>
-                  </div>
-                </div>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500 font-medium mb-1">Cancer Type</p>
+                <p className="text-lg font-bold text-slate-900">{cancerName || "—"}</p>
+                <p className="text-xs text-slate-500">{datasetLabel}</p>
               </div>
             </div>
           </div>
 
-          {/* GRID SECTION */}
-          <section className="grid lg:grid-cols-2 gap-6 mb-8">
-            {/* SUMMARY */}
-            <article className="group p-6 bg-white border border-blue-100 rounded-2xl shadow-lg hover:shadow-2xl hover:border-blue-200 transition-all duration-300 transform hover:scale-[1.02] animate-slide-left">
-              <div className="flex items-center gap-3 mb-4">
-                <span className="text-3xl">📋</span>
-                <h3 className="text-xl font-bold text-gray-900">Comprehensive Summary</h3>
-              </div>
-              <p className="text-sm text-gray-700 leading-relaxed mb-4">
-                {summary}
-              </p>
+          {/* ── Main grid — SIMULATED sections ────────────── */}
+          <div className="grid lg:grid-cols-2 gap-5">
 
-              <div className="mt-5">
+            {/* Analysis Summary */}
+            <div className="bg-white rounded-2xl border border-amber-200 shadow-sm p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wide">
+                  Analysis Summary
+                </h2>
+                <PlaceholderBadge />
+              </div>
+
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700 leading-relaxed">
+                <strong>Note:</strong> The text below is a static placeholder. It does not represent
+                live clinical AI output.
+              </div>
+
+              <p className="text-sm text-slate-500 leading-relaxed italic">{summary}</p>
+
+              {/* Interpretation accordion */}
+              <div className="border border-slate-200 rounded-xl overflow-hidden">
                 <button
-                  onClick={() => setExpandedSection(expandedSection === 'interpretation' ? null : 'interpretation')}
-                  className="flex items-center justify-between w-full font-semibold text-blue-600 mb-2 hover:text-blue-700 transition-colors"
+                  onClick={() => setExpanded(expanded === "interp" ? null : "interp")}
+                  className="w-full flex items-center justify-between p-4 text-sm font-semibold
+                    text-slate-800 hover:bg-slate-50 transition-colors"
                 >
-                  <span className="flex items-center gap-2">
-                    <span className="text-xl">🔍</span>
-                    Detailed Interpretation
-                  </span>
-                  <span className={`transform transition-transform ${expandedSection === 'interpretation' ? 'rotate-180' : ''}`}>
-                    ▼
-                  </span>
+                  Detailed Interpretation
+                  <ChevronDown size={16} className={`text-slate-400 transition-transform ${expanded === "interp" ? "rotate-180" : ""}`} />
                 </button>
-                <div
-                  className={`overflow-hidden transition-all duration-300 ${expandedSection === 'interpretation' ? 'max-h-96' : 'max-h-0'
-                    }`}
-                >
-                  <pre className="text-sm whitespace-pre-line bg-blue-50 p-4 rounded-lg text-gray-700 border border-blue-200">
-                    {interpretation}
-                  </pre>
+                {expanded === "interp" && (
+                  <div className="px-4 pb-4 text-xs text-slate-500 leading-relaxed border-t border-slate-100 italic">
+                    {isAdvanced
+                      ? "Biomarker profile suggests reduced suitability for local-only therapy. Molecular signatures indicate elevated tumour burden. Multidisciplinary evaluation recommended."
+                      : "Biomarker profile may support organ-preserving strategies. Localised disease pattern with lower high-risk activity. High probability of curative intervention if confirmed."}
+                  </div>
+                )}
+              </div>
+
+              {/* Top features */}
+              {predictionResult.top_features && predictionResult.top_features.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                      Top Contributing Biomarkers
+                    </p>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full
+                      bg-blue-50 text-blue-700 text-[10px] font-semibold border border-blue-200">
+                      <ShieldCheck size={9} /> From Model
+                    </span>
+                  </div>
+                  <div className="space-y-2.5">
+                    {predictionResult.top_features.slice(0, 5).map((f, i) => (
+                      <div key={i}>
+                        <div className="flex justify-between text-xs mb-1">
+                          <span className="font-medium text-slate-700">{f.name}</span>
+                          <span className="text-slate-400">{(f.importance * 100).toFixed(1)}%</span>
+                        </div>
+                        <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-[#1E3A5F] rounded-full"
+                            style={{ width: `${Math.min(f.importance * 100, 100)}%` }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
+              )}
+            </div>
+
+            {/* Clinical Actions */}
+            <div className="bg-white rounded-2xl border border-amber-200 shadow-sm p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wide">
+                  Recommended Clinical Actions
+                </h2>
+                <PlaceholderBadge />
               </div>
 
-              {renderTopFeatures()}
-            </article>
-
-            {/* CLINICAL PATHWAY */}
-            <article className="group p-6 bg-white border border-blue-100 rounded-2xl shadow-lg hover:shadow-2xl hover:border-blue-200 transition-all duration-300 transform hover:scale-[1.02] animate-slide-right">
-              <div className="flex items-center gap-3 mb-4">
-                <span className="text-3xl">🗺️</span>
-                <h3 className="text-xl font-bold text-gray-900">Clinical Pathway</h3>
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700 leading-relaxed">
+                <strong>Note:</strong> These recommendations are static placeholders, not validated AI
+                clinical guidance.
               </div>
+
               <ol className="space-y-3">
-                {[
-                  { icon: '🔬', title: 'Biopsy Confirmation', desc: 'Pathology grading & verification' },
-                  { icon: '📸', title: 'Staging Imaging', desc: 'CT / MRI / PET-CT for T/N/M mapping' },
-                  { icon: '🧬', title: 'Molecular Testing', desc: 'NGS, PCR, or targeted biomarker assays' },
-                  { icon: '👥', title: 'Tumor Board Review', desc: 'Multidisciplinary planning' },
-                  { icon: '❤️', title: 'Supportive Assessment', desc: 'Organ function, psychosocial support' },
-                ].map((step, i) => (
-                  <li
-                    key={i}
-                    className="flex gap-3 p-3 bg-blue-50 rounded-lg border border-blue-100 hover:bg-blue-100 transition-all transform hover:translate-x-2"
-                    style={{ animationDelay: `${i * 0.1}s` }}
-                  >
-                    <span className="text-2xl flex-shrink-0">{step.icon}</span>
-                    <div>
-                      <strong className="text-blue-700 block">{step.title}</strong>
-                      <span className="text-sm text-gray-600">{step.desc}</span>
-                    </div>
+                {clinicalActions.map((action, i) => (
+                  <li key={i} className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg border border-slate-100">
+                    <span className="w-6 h-6 rounded-full bg-slate-300 text-slate-600 text-xs font-bold
+                      flex items-center justify-center shrink-0 mt-0.5">
+                      {i + 1}
+                    </span>
+                    <span className="text-sm text-slate-500 italic">{action}</span>
                   </li>
                 ))}
               </ol>
-              <p className="text-xs text-gray-600 mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <strong className="text-yellow-700">⚠️ Note:</strong> AI supports clinical decision-making but does not replace physician judgment.
-              </p>
-            </article>
-          </section>
 
-          {/* CHECKLIST TABLE */}
-          <section className="mb-8 p-6 bg-white border border-blue-100 rounded-2xl shadow-lg animate-fade-in">
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-3xl">✅</span>
-              <h3 className="text-xl font-bold text-gray-900">Diagnostic Checklist</h3>
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-600">
+                <strong>Clinical Note:</strong> AI findings support clinical decision-making but do not
+                replace physician judgment or pathological confirmation.
+              </div>
             </div>
+          </div>
 
-            <div className="overflow-x-auto rounded-lg">
+          {/* ── Checklist table — SIMULATED ───────────────── */}
+          <div className="bg-white rounded-2xl border border-amber-200 shadow-sm p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wide">
+                Diagnostic Checklist
+              </h2>
+              <PlaceholderBadge />
+            </div>
+            <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700">
+              <strong>Note:</strong> This checklist is a generic static template and does not reflect AI-generated
+              recommendations for this specific case.
+            </div>
+            <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
-                <thead className="bg-blue-100">
-                  <tr>
-                    <th className="p-3 border border-blue-200 text-left text-blue-800 font-semibold">Step</th>
-                    <th className="p-3 border border-blue-200 text-left text-blue-800 font-semibold">Purpose</th>
-                    <th className="p-3 border border-blue-200 text-left text-blue-800 font-semibold">Responsible</th>
-                    <th className="p-3 border border-blue-200 text-left text-blue-800 font-semibold">Tests</th>
+                <thead>
+                  <tr className="border-b border-slate-200">
+                    {["Step", "Purpose", "Responsible", "Method"].map(h => (
+                      <th key={h} className="text-left py-2 px-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">
+                        {h}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
-                <tbody className="bg-white">
+                <tbody className="divide-y divide-slate-100">
                   {[
-                    ['Clinical Evaluation', 'Initial assessment', 'Oncologist', 'Physical exam'],
-                    ['Tissue Diagnosis', 'Confirm malignancy', 'Pathologist', 'Biopsy, IHC'],
-                    ['Staging Imaging', 'Assess spread', 'Radiologist', 'CT, MRI, PET-CT'],
-                    ['Molecular Profiling', 'Therapy guidance', 'Molecular Lab', 'NGS, PCR'],
+                    ["Clinical Evaluation", "Initial assessment",  "Oncologist",    "Physical exam"],
+                    ["Tissue Diagnosis",    "Confirm malignancy",  "Pathologist",   "Biopsy, IHC"],
+                    ["Staging Imaging",     "Assess spread",       "Radiologist",   "CT, MRI, PET-CT"],
+                    ["Molecular Profiling", "Therapy guidance",    "Molecular Lab", "NGS, PCR"],
                   ].map((row, i) => (
-                    <tr key={i} className="hover:bg-blue-50 transition-colors">
-                      <td className="p-3 border border-blue-200 text-gray-900 font-medium">{row[0]}</td>
-                      <td className="p-3 border border-blue-200 text-gray-700">{row[1]}</td>
-                      <td className="p-3 border border-blue-200 text-gray-700">{row[2]}</td>
-                      <td className="p-3 border border-blue-200 text-gray-700">{row[3]}</td>
+                    <tr key={i} className="hover:bg-slate-50 transition-colors">
+                      {row.map((cell, j) => (
+                        <td key={j} className={`py-3 px-3 text-slate-500 italic ${j === 0 ? "font-medium" : ""}`}>
+                          {cell}
+                        </td>
+                      ))}
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          </section>
-
-          {/* ACTION BOX */}
-          <div className="mb-8 p-6 bg-gradient-to-br from-red-50 to-orange-50 border border-red-200 rounded-2xl shadow-lg animate-pulse-slow">
-            <div className="flex items-center gap-3 mb-3">
-              <span className="text-3xl">🎯</span>
-              <h3 className="font-bold text-red-700 text-lg">Recommended Action</h3>
-            </div>
-            <p className="text-sm text-gray-800 leading-relaxed">{recommendedAction}</p>
-            <p className="text-xs text-gray-600 mt-3 p-3 bg-white/50 rounded-lg border border-orange-200">
-              <strong className="text-orange-700">⚠️ Reminder:</strong> Only licensed clinicians may confirm a cancer diagnosis.
-            </p>
           </div>
 
-          {/* BUTTONS */}
-          <div className="flex flex-col sm:flex-row justify-center gap-4 animate-fade-in">
+          {/* ── Action buttons ─────────────────────────────── */}
+          <div className="flex flex-col sm:flex-row gap-3">
             <button
               onClick={() => navigate(-1)}
-              className="group px-6 py-3 bg-white border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 hover:border-gray-400 transition-all transform hover:scale-105 shadow-lg flex items-center justify-center gap-2 font-medium"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-lg border border-slate-300
+                text-slate-700 text-sm font-medium hover:bg-slate-50 transition-colors"
             >
-              <span className="transform group-hover:-translate-x-1 transition-transform">←</span>
-              Back
+              <ArrowLeft size={16} /> Back
             </button>
             <button
               onClick={handleExportPDF}
-              className="group px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all transform hover:scale-105 shadow-lg flex items-center justify-center gap-2 font-semibold"
+              disabled={exporting}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[#1E3A5F]
+                text-white text-sm font-semibold hover:bg-[#1A3352] transition-colors ml-auto
+                disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              <span className="text-xl">📄</span>
-              Export to PDF
-              <span className="transform group-hover:translate-x-1 transition-transform">→</span>
+              {exporting
+                ? <><Loader2 size={16} className="animate-spin" /> Generating PDF…</>
+                : <><Download size={16} /> Export PDF Report</>}
             </button>
           </div>
+
         </div>
       </main>
-
       <Footer />
-
-      {/* Custom CSS for animations */}
-      <style>{`
-        @keyframes fade-in {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        @keyframes slide-up {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes slide-left {
-          from { opacity: 0; transform: translateX(-20px); }
-          to { opacity: 1; transform: translateX(0); }
-        }
-        @keyframes slide-right {
-          from { opacity: 0; transform: translateX(20px); }
-          to { opacity: 1; transform: translateX(0); }
-        }
-        @keyframes bounce-slow {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-10px); }
-        }
-        @keyframes pulse-slow {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.8; }
-        }
-        .animate-fade-in {
-          animation: fade-in 0.8s ease-out forwards;
-        }
-        .animate-slide-up {
-          animation: slide-up 0.8s ease-out forwards;
-        }
-        .animate-slide-left {
-          animation: slide-left 0.8s ease-out forwards;
-        }
-        .animate-slide-right {
-          animation: slide-right 0.8s ease-out forwards;
-        }
-        .animate-bounce-slow {
-          animation: bounce-slow 2s ease-in-out infinite;
-        }
-        .animate-pulse-slow {
-          animation: pulse-slow 3s ease-in-out infinite;
-        }
-      `}</style>
     </div>
   );
 };

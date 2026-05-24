@@ -1,166 +1,140 @@
-import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import Footer from './Footer';
+﻿import React, { useEffect, useState } from "react";
+import { useParams, useNavigate, Link } from "react-router-dom";
+import { Home, ChevronRight, ArrowLeft, Calendar, User, Tag } from "lucide-react";
+import Footer from "../../components/layout/Footer";
 
-interface NewsDetail {
-  id: number;
-  title: string;
-  image_url: any;
-  category: string;
-  body: string;
-  created_at: string;
-  created_by: string;
-  objectUrl?: string;
+interface NewsItem {
+  id: number; title: string; image_url: any; category: string;
+  body: string; created_at: string; created_by: string; objectUrl?: string;
 }
 
 const NewsDetail: React.FC = () => {
-  const { id } = useParams();
+  const { id }   = useParams();
   const navigate = useNavigate();
-  const [news, setNews] = useState<NewsDetail | null>(null);
+  const [news,    setNews]    = useState<NewsItem | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error,   setError]   = useState("");
   const baseUrl = import.meta.env.VITE_AI_BACKEND_URL;
 
-  const loadImageAsBlobUrl = async (imageData: any) => {
-    if (!imageData) {
-      console.log('No image data provided');
-      return null;
-    }
-
-    console.log('Image data type:', typeof imageData, imageData);
-
-    // Handle Buffer data
-    if (imageData?.type === "Buffer" && Array.isArray(imageData.data)) {
-      try {
-        const uint8 = new Uint8Array(imageData.data);
-        const blob = new Blob([uint8], { type: "image/jpeg" });
-        const url = URL.createObjectURL(blob);
-        console.log('Created blob URL from buffer:', url);
-        return url;
-      } catch (error) {
-        console.error('Error creating blob from buffer:', error);
-        return null;
-      }
-    }
-
-    // Handle direct blob URL or base64
+  const loadImage = async (imageData: any): Promise<string | null> => {
+    if (!imageData) return null;
+    if (imageData?.type === "Buffer" && Array.isArray(imageData.data))
+      try { return URL.createObjectURL(new Blob([new Uint8Array(imageData.data)], { type: "image/jpeg" })); } catch { return null; }
     if (typeof imageData === "string") {
-      // Check if it's already a blob URL or base64
-      if (imageData.startsWith('blob:') || imageData.startsWith('data:')) {
-        console.log('Using existing blob/data URL:', imageData);
-        return imageData;
-      }
-
-      // Handle file path
-      const cleanPath = imageData.startsWith("/") ? imageData : `/${imageData}`;
-      const fullUrl = `${baseUrl}${cleanPath}`;
-      console.log('Fetching image from URL:', fullUrl);
+      if (imageData.startsWith("blob:") || imageData.startsWith("data:")) return imageData;
       try {
-        const response = await fetch(fullUrl);
-        if (!response.ok) throw new Error(`Image fetch failed: ${response.status}`);
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        console.log('Created blob URL from fetch:', url);
-        return url;
-      } catch (error) {
-        console.error('Error fetching image:', error);
-        return null;
-      }
+        const r = await fetch(`${baseUrl}${imageData.startsWith("/") ? imageData : "/" + imageData}`);
+        if (!r.ok) return null;
+        return URL.createObjectURL(await r.blob());
+      } catch { return null; }
     }
-
-    // Handle direct blob object
-    if (imageData instanceof Blob) {
-      const url = URL.createObjectURL(imageData);
-      console.log('Created blob URL from blob object:', url);
-      return url;
-    }
-
-    console.warn('Unsupported image data format:', imageData);
+    if (imageData instanceof Blob) return URL.createObjectURL(imageData);
     return null;
   };
 
   useEffect(() => {
     if (!id) return;
-
-    const loadNews = async () => {
-      setLoading(true);
-      setError('');
-      
+    setLoading(true); setError("");
+    const load = async () => {
       try {
-        console.log('Fetching news with ID:', id);
         const res = await fetch(`${baseUrl}/news/${id}`);
-        if (!res.ok) throw new Error(`Gagal mengambil detail berita: ${res.status}`);
+        if (!res.ok) throw new Error(`${res.status}`);
         const data = await res.json();
-        console.log('Received news data:', data);
-        
-        const blobUrl = await loadImageAsBlobUrl(data.image_url);
-        console.log('Final blob URL:', blobUrl);
-        
-        setNews({ ...data, objectUrl: blobUrl });
-      } catch (err: any) {
-        console.error('Error loading news:', err);
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
+        setNews({ ...data, objectUrl: await loadImage(data.image_url) });
+      } catch (e: any) {
+        setError("Failed to load article. Please try again.");
+      } finally { setLoading(false); }
     };
-
-    loadNews();
+    load();
   }, [id, baseUrl]);
 
   return (
-    <div className="bg-white flex flex-col min-h-screen">
-      <main className="flex-1 py-10 px-6">
-        <div className="max-w-4xl mx-auto">
-          {error && (
-            <div className="text-red-600 text-center mb-6">{error}</div>
-          )}
+    <div className="min-h-screen bg-slate-50 flex flex-col">
+      {/* Breadcrumb */}
+      <div className="bg-white border-b border-slate-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+          <nav className="flex items-center gap-1.5 text-xs text-slate-500">
+            <Link to="/" className="flex items-center gap-1 hover:text-slate-700"><Home size={12}/> Home</Link>
+            <ChevronRight size={12}/>
+            <Link to="/news" className="hover:text-slate-700">News</Link>
+            <ChevronRight size={12}/>
+            <span className="text-slate-800 font-medium truncate max-w-48">{news?.title || "Article"}</span>
+          </nav>
+        </div>
+      </div>
 
+      <main className="flex-1 px-4 py-10">
+        <div className="max-w-3xl mx-auto">
           {loading ? (
-            <div className="text-center text-gray-500">Loading news...</div>
-          ) : news ? (
-            <div className="space-y-6">
-              {news.objectUrl ? (
-                <img
-                  src={news.objectUrl}
-                  alt={news.title}
-                  className="w-full h-64 object-cover rounded-lg shadow"
-                  onError={(e) => {
-                    console.error('Image failed to load:', news.objectUrl);
-                    e.currentTarget.style.display = 'none';
-                  }}
-                  onLoad={() => console.log('Image loaded successfully:', news.objectUrl)}
-                />
-              ) : (
-                <div className="w-full h-64 bg-gray-200 rounded-lg shadow flex items-center justify-center">
-                  <span className="text-gray-500">No image available</span>
-                </div>
-              )}
-              <span className="inline-block px-3 py-1 text-sm rounded bg-[#e0e8ff] text-[#191757]">
-                {news.category}
-              </span>
-              <h1 className="text-3xl font-bold text-[#191757]">{news.title}</h1>
-              <p className="text-sm text-gray-600">
-                {news.created_by} • {new Date(news.created_at).toLocaleDateString('id-ID')}
-              </p>
-              <div 
-                className="text-gray-800 leading-relaxed prose prose-lg max-w-none"
-                dangerouslySetInnerHTML={{ __html: news.body }}
-              />
-              <button
-                onClick={() => navigate(-1)}
-                className="mt-6 px-4 py-2 bg-gray-200 text-[#191757] rounded hover:bg-gray-300 transition"
-              >
-                Back
+            <div className="space-y-4 animate-pulse">
+              <div className="h-72 bg-slate-200 rounded-2xl" />
+              <div className="h-8 bg-slate-200 rounded w-3/4" />
+              <div className="h-4 bg-slate-100 rounded w-1/3" />
+              {[...Array(5)].map((_, i) => <div key={i} className="h-4 bg-slate-100 rounded" />)}
+            </div>
+          ) : error ? (
+            <div className="text-center py-20">
+              <p className="text-red-600 font-medium mb-4">{error}</p>
+              <button onClick={() => navigate("/news")}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-300 text-slate-700 text-sm hover:bg-slate-50 transition-colors">
+                <ArrowLeft size={15}/> Back to News
               </button>
             </div>
-          ) : (
-            !error && !loading && <div className="text-center text-gray-500">News not found</div>
-          )}
+          ) : news ? (
+            <article className="animate-fadeIn">
+              {/* Hero image */}
+              {news.objectUrl ? (
+                <div className="relative rounded-2xl overflow-hidden shadow-sm mb-8">
+                  <img src={news.objectUrl} alt={news.title} className="w-full h-64 sm:h-80 object-cover"
+                    onError={e => { e.currentTarget.style.display = "none"; }} />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+                </div>
+              ) : (
+                <div className="w-full h-64 bg-slate-200 rounded-2xl mb-8 flex items-center justify-center">
+                  <span className="text-slate-400 text-sm">No image available</span>
+                </div>
+              )}
+
+              {/* Meta */}
+              <div className="flex flex-wrap items-center gap-3 mb-5">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg
+                  bg-slate-100 text-slate-700 text-xs font-medium border border-slate-200">
+                  <Tag size={11}/> {news.category}
+                </span>
+                <span className="flex items-center gap-1.5 text-xs text-slate-500">
+                  <User size={11}/> {news.created_by}
+                </span>
+                <span className="flex items-center gap-1.5 text-xs text-slate-500">
+                  <Calendar size={11}/> {new Date(news.created_at).toLocaleDateString("en-GB", { year: "numeric", month: "long", day: "numeric" })}
+                </span>
+              </div>
+
+              {/* Title */}
+              <h1 className="text-2xl sm:text-3xl font-bold text-[#1E3A5F] leading-tight mb-6">
+                {news.title}
+              </h1>
+
+              {/* Body */}
+              <div
+                className="prose prose-slate prose-sm sm:prose max-w-none
+                  prose-headings:text-[#1E3A5F] prose-a:text-cyan-700
+                  prose-img:rounded-xl prose-img:shadow-sm"
+                dangerouslySetInnerHTML={{ __html: news.body }}
+              />
+
+              {/* Back button */}
+              <div className="mt-10 pt-6 border-t border-slate-200">
+                <button onClick={() => navigate("/news")}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg
+                    border border-slate-300 text-slate-700 text-sm font-medium hover:bg-slate-50 transition-colors">
+                  <ArrowLeft size={16}/> Back to News
+                </button>
+              </div>
+            </article>
+          ) : null}
         </div>
       </main>
-
-      <Footer />
+      <Footer/>
     </div>
   );
 };

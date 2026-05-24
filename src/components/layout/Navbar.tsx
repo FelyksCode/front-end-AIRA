@@ -1,110 +1,119 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { Menu, X, Activity } from "lucide-react";
 
-function Navbar() {
-  const location = useLocation();
-  const currentPath = location.pathname;
-  const [menuOpen, setMenuOpen] = useState(false);
+const navLinks = [
+  { label: "Diagnosis",  path: "/diagnosis"  },
+  { label: "Prognosis",  path: "/prognosis"  },
+  { label: "Treatment",  path: "/treatment"  },
+  { label: "News",       path: "/news"       },
+];
 
+export default function Navbar() {
+  const { pathname } = useLocation();
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [scrolled,   setScrolled]   = useState(false);
   const cmsURL = import.meta.env.VITE_CMS_URL;
 
-  const menuItems = [
-    { label: "Diagnosis", path: "/diagnosis" },
-    { label: "Prognosis", path: "/prognosis" },
-    { label: "Treatment", path: "/treatment" },
-    { label: "News", path: "/news" },
-  ];
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 4);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => setMobileOpen(false), [pathname]);
+
+  const isActive = (path: string) =>
+    pathname === path || pathname.startsWith(path + "/");
 
   return (
-    <nav className="w-full bg-white shadow-[0_4px_12px_rgba(0,0,0,0.1)] h-20 flex items-center px-6 relative z-50">
-      {/* Logo kiri */}
-      <div className="absolute left-6 top-1/2 -translate-y-1/2">
-        <Link to="/">
-          <img
-            src="logo.PNG"
-            alt="UMN Cancer Society"
-            className="h-12 w-auto cursor-pointer"
-          />
-        </Link>
-      </div>
+    <header
+      className={`sticky top-0 z-50 bg-white border-b border-slate-200 transition-shadow duration-200
+        ${scrolled ? "shadow-md" : "shadow-none"}`}
+    >
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center h-16 gap-8">
 
-      {/* Menu tengah (desktop) */}
-      <div className="flex-1 justify-center hidden md:flex">
-        <ul className="flex gap-16 text-xl font-semibold">
-          {menuItems.map((item) => {
-            const isHome = currentPath === "/";
-            const isActive = currentPath.startsWith(item.path);
+          {/* Logo */}
+          <Link to="/" className="flex items-center gap-2.5 shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-[#1E3A5F] flex items-center justify-center">
+              <Activity className="text-white" size={18} />
+            </div>
+            <span className="text-[#1E3A5F] font-bold text-xl tracking-tight">AIRA</span>
+          </Link>
 
-            return (
-              <li key={item.path}>
-                <Link
-                  to={item.path}
-                  className={`transition-colors duration-200 ${isActive && !isHome
-                    ? "font-bold text-[#181852]"
-                    : "font-normal text-[#212129]"
-                    } hover:text-[#181852]`}
-                >
-                  {item.label}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      </div>
-
-      {/* Tombol Login kanan (desktop) */}
-      <div className="absolute right-6 top-1/2 -translate-y-1/2 hidden md:block">
-        <a
-          href={`${cmsURL}/login`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="px-6 py-2 bg-[#181852] text-white rounded-lg font-semibold hover:bg-[#2c2f7c] transition-colors duration-200"
-        >
-          Login
-        </a>
-      </div>
-
-      {/* Tombol hamburger (mobile) */}
-      <div className="absolute right-6 top-1/2 -translate-y-1/2 md:hidden">
-        <button
-          onClick={() => setMenuOpen(!menuOpen)}
-          className="text-[#181852] focus:outline-none text-2xl"
-        >
-          {menuOpen ? "✕" : "☰"}
-        </button>
-      </div>
-
-      {/* Menu mobile (dropdown) */}
-      {menuOpen && (
-        <div className="absolute top-20 left-0 w-full bg-white shadow-lg border-t md:hidden animate-fadeIn">
-          <ul className="flex flex-col items-center py-4 space-y-3 text-lg font-medium">
-            {menuItems.map((item) => (
-              <li key={item.path}>
-                <Link
-                  to={item.path}
-                  className="block px-4 py-2 text-[#212129] hover:text-[#181852]"
-                  onClick={() => setMenuOpen(false)}
-                >
-                  {item.label}
-                </Link>
-              </li>
+          {/* Desktop Nav */}
+          <nav className="hidden md:flex items-center gap-1 flex-1">
+            {navLinks.map(({ label, path }) => (
+              <Link
+                key={path}
+                to={path}
+                className={`px-3.5 py-2 rounded-lg text-sm font-medium transition-all duration-150
+                  ${isActive(path)
+                    ? "bg-slate-100 text-[#1E3A5F] font-semibold"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                  }`}
+              >
+                {label}
+              </Link>
             ))}
-            <li>
+          </nav>
+
+          {/* Desktop Login */}
+          <div className="hidden md:flex items-center ml-auto">
+            <a
+              href={cmsURL ? `${cmsURL}/login` : "#"}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1E3A5F]
+                text-white text-sm font-semibold hover:bg-[#1A3352] transition-colors duration-150"
+            >
+              Login to CMS
+            </a>
+          </div>
+
+          {/* Mobile Hamburger */}
+          <button
+            onClick={() => setMobileOpen(!mobileOpen)}
+            className="md:hidden ml-auto p-2 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors"
+            aria-label="Toggle menu"
+          >
+            {mobileOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile Menu */}
+      {mobileOpen && (
+        <div className="md:hidden border-t border-slate-100 bg-white animate-fadeIn">
+          <div className="max-w-7xl mx-auto px-4 py-3 space-y-1">
+            {navLinks.map(({ label, path }) => (
+              <Link
+                key={path}
+                to={path}
+                className={`block px-4 py-2.5 rounded-lg text-sm font-medium transition-colors
+                  ${isActive(path)
+                    ? "bg-slate-100 text-[#1E3A5F] font-semibold"
+                    : "text-slate-700 hover:bg-slate-50"
+                  }`}
+              >
+                {label}
+              </Link>
+            ))}
+            <div className="pt-2 border-t border-slate-100">
               <a
-                href={`${cmsURL}/login`}
+                href={cmsURL ? `${cmsURL}/login` : "#"}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-5 py-2 bg-[#181852] text-white rounded-lg hover:bg-[#2c2f7c] transition-colors duration-200"
-                onClick={() => setMenuOpen(false)}
+                className="block w-full text-center px-4 py-2.5 rounded-lg bg-[#1E3A5F]
+                  text-white text-sm font-semibold hover:bg-[#1A3352] transition-colors"
               >
-                Login
+                Login to CMS
               </a>
-            </li>
-          </ul>
+            </div>
+          </div>
         </div>
       )}
-    </nav>
+    </header>
   );
 }
-
-export default Navbar;

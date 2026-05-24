@@ -1,6 +1,41 @@
 @import "tailwindcss";
 
-/* Global Reset & Tailwind Harmony */
+/* ─────────────────────────────────────────────
+   DESIGN TOKENS — AIRA Clinical Platform
+   Color palette: "Clinical Precision"
+───────────────────────────────────────────── */
+:root {
+  /* Brand */
+  --brand-primary:   #1E3A5F;   /* deep navy  */
+  --brand-secondary: #0891B2;   /* cyan-600   */
+  --brand-hover:     #1A3352;   /* darker navy */
+
+  /* Surfaces */
+  --surface-page:    #F8FAFC;   /* slate-50   */
+  --surface-card:    #FFFFFF;   /* white      */
+  --surface-muted:   #F1F5F9;   /* slate-100  */
+
+  /* Borders */
+  --border-default:  #E2E8F0;   /* slate-200  */
+  --border-strong:   #CBD5E1;   /* slate-300  */
+
+  /* Text */
+  --text-primary:    #0F172A;   /* slate-900  */
+  --text-secondary:  #475569;   /* slate-600  */
+  --text-muted:      #94A3B8;   /* slate-400  */
+
+  /* Status */
+  --status-success:  #16A34A;   /* green-600  */
+  --status-warning:  #D97706;   /* amber-600  */
+  --status-danger:   #DC2626;   /* red-600    */
+  --status-info:     #0284C7;   /* sky-600    */
+}
+
+/* ─────────────────────────────────────────────
+   GLOBAL BASE
+───────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
 html, body {
   margin: 0;
   padding: 0;
@@ -8,68 +43,114 @@ html, body {
   min-height: 100vh;
   overflow-x: hidden;
   scroll-behavior: smooth;
-  background-color: #ffffff;
-  color: #1f2937; /* Tailwind gray-800 */
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  background-color: var(--surface-page);
+  color: var(--text-primary);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Headings */
-h1, h2, h3, h4, h5, h6 {
-  font-weight: 600;
-  line-height: 1.2;
-  margin: 0;
+#root {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
-/* Links */
-a {
-  font-weight: 500;
-  color: #2563eb; /* Tailwind blue-600 */
-  text-decoration: none;
-}
-a:hover {
-  color: #1d4ed8; /* Tailwind blue-700 */
-}
-
-/* Buttons */
-button {
-  font-family: inherit;
-  font-weight: 500;
-  font-size: 1rem;
-  padding: 0.6em 1.2em;
-  border-radius: 0.5rem;
-  border: none;
-  cursor: pointer;
-  background-color: #2563eb;
-  color: white;
-  transition: background-color 0.3s ease;
-}
-button:hover {
-  background-color: #1d4ed8;
-}
-button:focus,
-button:focus-visible {
-  outline: 2px solid #93c5fd; /* Tailwind blue-300 */
-  outline-offset: 2px;
-}
-
-/* Optional: Light/Dark Mode Support */
-@media (prefers-color-scheme: dark) {
-  html, body {
-    background-color: #1f1f1f;
-    color: #f3f4f6; /* Tailwind gray-100 */
+/* ─────────────────────────────────────────────
+   BASE ELEMENT STYLES
+   Wrapped in @layer base so Tailwind utility
+   classes (text-white, text-cyan-600, etc.)
+   always win the cascade in Tailwind v4.
+───────────────────────────────────────────── */
+@layer base {
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 700;
+    line-height: 1.2;
+    margin: 0;
+    color: var(--text-primary);
   }
+
   a {
-    color: #93c5fd;
+    font-weight: 500;
+    color: var(--brand-primary);
+    text-decoration: none;
+    transition: color 0.15s ease;
   }
-  a:hover {
-    color: #60a5fa;
-  }
+  a:hover { color: var(--brand-hover); }
+
+  /* BUTTON RESET */
   button {
-    background-color: #3b82f6;
+    font-family: inherit;
+    cursor: pointer;
+    border: none;
+    background: none;
+    padding: 0;
+    margin: 0;
   }
-  button:hover {
-    background-color: #2563eb;
+  button:focus-visible {
+    outline: 2px solid var(--brand-secondary);
+    outline-offset: 2px;
+    border-radius: 6px;
   }
+
+  select, input, textarea {
+    font-family: inherit;
+    color: var(--text-primary);
+  }
+  select:focus, input:focus, textarea:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(8, 145, 178, 0.15);
+  }
+}
+
+/* ─────────────────────────────────────────────
+   LAYOUT
+───────────────────────────────────────────── */
+main {
+  flex: 1;
+  width: 100%;
+  overflow-x: hidden;
+}
+
+footer {
+  width: 100%;
+}
+
+/* ─────────────────────────────────────────────
+   CUSTOM SCROLLBAR (subtle, medical style)
+───────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--surface-muted); }
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* ─────────────────────────────────────────────
+   UTILITY ANIMATIONS (minimal, purposeful)
+───────────────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-12px); }
+  to   { opacity: 1; transform: translateX(0);     }
+}
+@keyframes pulseStatus {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
+}
+
+.animate-fadeIn  { animation: fadeIn  0.3s ease-out forwards; }
+.animate-slideIn { animation: slideIn 0.3s ease-out forwards; }
+.animate-pulse-status { animation: pulseStatus 2s ease-in-out infinite; }
+
+/* ─────────────────────────────────────────────
+   PDF / PRINT
+───────────────────────────────────────────── */
+@media print {
+  .no-print { display: none !important; }
 }

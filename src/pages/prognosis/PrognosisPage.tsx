@@ -1,147 +1,101 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import Footer from './Footer';
+import { Link } from "react-router-dom";
+import { ChevronRight, Home, TrendingUp, Clock, Bell } from "lucide-react";
+import Footer from "../../components/layout/Footer";
 
-const PrognosisSection: React.FC = () => {
-  const [selectedCancer, setSelectedCancer] = useState('');
-  const [selectedFeature, setSelectedFeature] = useState('');
-  const [selectedDataset, setSelectedDataset] = useState('');
-  const [cancerList, setCancerList] = useState<{ name: string; slug: string }[]>([]);
-  const [rawOptions, setRawOptions] = useState<any[]>([]);
-  const navigate = useNavigate();
-  const baseUrl = import.meta.env.VITE_AI_BACKEND_URL;
-
-  useEffect(() => {
-    fetch(`${baseUrl}/cancers?ai_feature=prognosis`)
-      .then((res) => res.json())
-      .then((data) => {
-        const cancers = Array.isArray(data) ? data.map((item: any) => ({
-          name: item.name,
-          slug: item.slug
-        })) : [];
-        setCancerList(cancers);
-      })
-      .catch((err) => console.error("Gagal ambil daftar kanker:", err));
-  }, []);
-
-  useEffect(() => {
-    if (!selectedCancer) return;
-
-    const slug = selectedCancer.toLowerCase().replace(/\s+/g, '-');
-
-    fetch(`${baseUrl}/cancers/${slug}/feature-options?ai_feature=prognosis`)
-      .then((res) => res.json())
-      .then((data) => setRawOptions(Array.isArray(data) ? data : []))
-      .catch((err) => {
-        console.error("Gagal ambil opsi:", err);
-        setRawOptions([]);
-      });
-  }, [selectedCancer]);
-
-  const featureList = Array.from(new Set(rawOptions.map((opt) => opt.ai_data_type)));
-
-  const datasetList = rawOptions
-    .filter((opt) => opt.ai_data_type === selectedFeature)
-    .map((opt) => opt.label);
-
-  const handleContinue = () => {
-    if (selectedFeature.toLowerCase().includes('image') && selectedFeature.toLowerCase().includes('gene')) {
-      navigate('/upload/prognosis/multi');
-    } else {
-      navigate('/upload/prognosis');
-    }
-  };
-
+export default function PrognosisPage() {
   return (
-    <div className="flex flex-col min-h-screen bg-white">
-      <main
-        className="relative flex flex-1 h-[600px] overflow-hidden"
-        style={{
-          backgroundImage: `url('/picture3.jpeg')`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center left',
-        }}
-      >
-        <div className="w-1/2"></div>
-        <div className="w-1/2 flex items-center justify-center bg-[#6592bf]">
-          <div className="flex flex-col gap-6 bg-white rounded-lg shadow-lg p-8 max-w-md w-full mx-6">
-            <h2 className="text-2xl font-bold text-center text-[#191757]">Prognosis</h2>
+    <div className="min-h-screen bg-slate-50 flex flex-col">
 
-            <div>
-              <label className="font-semibold block mb-2 text-[#191757]">Select Cancer Type</label>
-              <select
-                value={selectedCancer}
-                onChange={(e) => {
-                  setSelectedCancer(e.target.value);
-                  setSelectedFeature('');
-                  setSelectedDataset('');
-                }}
-                className="w-full border border-gray-300 rounded p-2 bg-white text-black"
-              >
-                <option value="">-- Choose --</option>
-                {cancerList.map((cancer, index) => (
-                  <option key={index} value={cancer.slug}>
-                    {cancer.name}
-                  </option>
-                ))}
-              </select>
+      {/* Breadcrumb */}
+      <div className="bg-white border-b border-slate-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+          <nav className="flex items-center gap-1.5 text-xs text-slate-500">
+            <Link to="/" className="flex items-center gap-1 hover:text-slate-700 transition-colors">
+              <Home size={12} /> Home
+            </Link>
+            <ChevronRight size={12} />
+            <span className="text-slate-800 font-medium">Prognosis</span>
+          </nav>
+        </div>
+      </div>
+
+      {/* Main content */}
+      <main className="flex-1 flex items-center justify-center px-4 py-16">
+        <div className="w-full max-w-lg text-center animate-fadeIn">
+
+          {/* Icon */}
+          <div className="flex justify-center mb-8">
+            <div className="relative">
+              <div className="w-24 h-24 rounded-2xl bg-cyan-50 border border-cyan-100
+                flex items-center justify-center">
+                <TrendingUp size={40} className="text-cyan-600" />
+              </div>
+              <span className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-amber-100
+                border-2 border-white flex items-center justify-center">
+                <Clock size={13} className="text-amber-600" />
+              </span>
             </div>
-
-            <div>
-              <label className="font-semibold block mb-2 text-[#191757]">Select AI Feature</label>
-              <select
-                value={selectedFeature}
-                onChange={(e) => {
-                  setSelectedFeature(e.target.value);
-                  setSelectedDataset('');
-                }}
-                className="w-full border border-gray-300 rounded p-2 bg-white text-black"
-                disabled={featureList.length === 0}
-              >
-                <option value="">-- Choose --</option>
-                {featureList.map((f, index) => (
-                  <option key={index} value={f}>
-                    {f.toUpperCase()}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="font-semibold block mb-2 text-[#191757]">Select Dataset Type</label>
-              <select
-                value={selectedDataset}
-                onChange={(e) => setSelectedDataset(e.target.value)}
-                className="w-full border border-gray-300 rounded p-2 bg-white text-black"
-                disabled={datasetList.length === 0}
-              >
-                <option value="">-- Choose --</option>
-                {datasetList.map((label, index) => (
-                  <option key={index} value={label}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <button
-              onClick={handleContinue}
-              className="w-full px-4 py-2 text-white font-semibold rounded transition bg-[#191757]"
-              disabled={!selectedCancer || !selectedFeature || !selectedDataset}
-            >
-              Continue
-            </button>
           </div>
+
+          {/* Badge */}
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full
+            bg-amber-50 text-amber-700 text-xs font-semibold border border-amber-200 mb-5">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+            Under Development
+          </span>
+
+          <h1 className="text-3xl font-bold text-[#1E3A5F] mb-3">
+            Cancer Prognosis
+          </h1>
+          <p className="text-slate-500 leading-relaxed mb-8 max-w-sm mx-auto">
+            The AI prognosis prediction module is currently being developed and
+            validated against clinical datasets. It will be available soon.
+          </p>
+
+          {/* Info cards */}
+          <div className="grid sm:grid-cols-3 gap-3 mb-10 text-left">
+            {[
+              { label: "AI Models", value: "8 Models", sub: "GENE · METHYL · MIRNA · RADIOMICS" },
+              { label: "Cancer Types", value: "4 Types", sub: "Supported cancer categories" },
+              { label: "Status", value: "In Progress", sub: "Expected Q3 2025" },
+            ].map(({ label, value, sub }) => (
+              <div key={label} className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+                <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-1">{label}</p>
+                <p className="text-sm font-bold text-[#1E3A5F]">{value}</p>
+                <p className="text-[10px] text-slate-400 mt-0.5">{sub}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Actions */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Link
+              to="/diagnosis"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg
+                bg-[#1E3A5F] text-white text-sm font-semibold
+                hover:bg-[#1A3352] transition-colors duration-150"
+            >
+              Try Diagnosis Instead
+              <ChevronRight size={15} />
+            </Link>
+            <Link
+              to="/"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg
+                border border-slate-300 text-slate-600 text-sm font-semibold
+                hover:bg-slate-50 transition-colors duration-150"
+            >
+              <Bell size={14} />
+              Back to Home
+            </Link>
+          </div>
+
+          <p className="text-xs text-slate-400 mt-8">
+            AI results must be validated by a licensed clinician.
+          </p>
         </div>
       </main>
-      <div className="bg-[#aaaaaa] text-white text-center py-6">
-        <p className="text-lg font-semibold">
-          Empowering cancer outcome prediction with AI technology
-        </p>
-      </div>
+
       <Footer />
     </div>
   );
-};
-
-export default PrognosisSection;
+}
