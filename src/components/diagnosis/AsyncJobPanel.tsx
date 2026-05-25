@@ -5,7 +5,7 @@
  *   1. Submit file ke /predict-async (jika bukan resume)
  *   2. Polling adaptif dengan backoff: 2s → 5s → 10s → 20s
  *   3. Menampilkan job timeline, elapsed timer, dan cache hit badge
- *   4. Auto-navigate countdown (3s) saat completed
+ *   4. Menampilkan tombol "View Results" saat completed — user navigasi sendiri
  *   5. Persist job_id ke sessionStorage agar refresh tidak kehilangan tracking
  *
  * Props:
@@ -28,12 +28,16 @@ import {
   pollPredictionJob,
   type PredictionResult,
 } from "../../models/diagnosis-model";
+import {
+  saveJob,
+  clearJob,
+  type StoredJob,
+} from "../../utils/async-job-store";
 
 // ─────────────────────────────────────────────────────────────
 // Constants
 // ─────────────────────────────────────────────────────────────
 
-const STORAGE_KEY = "aira_async_job";
 const TIMEOUT_MS  = 5 * 60 * 1000; // 5 menit
 const MAX_CONSECUTIVE_ERRORS = 3;   // tolerate transient network errors
 
@@ -86,23 +90,9 @@ export interface AsyncJobPanelProps {
 }
 
 // ─────────────────────────────────────────────────────────────
-// sessionStorage helpers
+// sessionStorage helpers — imported from shared utils
+// (saveJob, clearJob, StoredJob are re-exported from async-job-store.ts)
 // ─────────────────────────────────────────────────────────────
-
-interface StoredJob {
-  jobId: string;
-  cancerSlug: string;
-  cancerName: string;
-  datasetLabel: string;
-  startedAt: number;
-}
-
-function saveJob(data: StoredJob) {
-  try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch {}
-}
-function clearJob() {
-  try { sessionStorage.removeItem(STORAGE_KEY); } catch {}
-}
 
 // ─────────────────────────────────────────────────────────────
 // Component
@@ -119,13 +109,11 @@ const AsyncJobPanel: React.FC<AsyncJobPanelProps> = ({
 }) => {
   const [phase,      setPhase]      = useState<Phase>({ kind: "submitting" });
   const [elapsedMs,  setElapsedMs]  = useState(0);
-  const [countdown,  setCountdown]  = useState<number | null>(null);
   const [isCopied,   setIsCopied]   = useState(false);
 
   // Refs untuk mengelola timers tanpa stale closure
   const pollingTimerRef    = useRef<ReturnType<typeof setTimeout>  | null>(null);
   const elapsedIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const countdownTimerRef  = useRef<ReturnType<typeof setInterval> | null>(null);
   const startedAtRef       = useRef<number>(Date.now());
   const errorCountRef      = useRef(0);
   const isMountedRef       = useRef(true);
@@ -139,9 +127,9 @@ const AsyncJobPanel: React.FC<AsyncJobPanelProps> = ({
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
+      clearJob();
       if (pollingTimerRef.current)    clearTimeout(pollingTimerRef.current);
       if (elapsedIntervalRef.current) clearInterval(elapsedIntervalRef.current);
-      if (countdownTimerRef.current)  clearInterval(countdownTimerRef.current);
     };
   }, []);
 
@@ -155,25 +143,6 @@ const AsyncJobPanel: React.FC<AsyncJobPanelProps> = ({
       }
     }, 1000);
   }, []);
-
-  // ── Auto-navigate countdown ──
-  const startCountdown = useCallback(
-    (result: PredictionResult, isCacheHit: boolean, totalTimeMs?: number) => {
-      setCountdown(3);
-      let remaining = 3;
-      countdownTimerRef.current = setInterval(() => {
-        remaining -= 1;
-        if (remaining <= 0) {
-          clearInterval(countdownTimerRef.current!);
-          countdownTimerRef.current = null;
-          onCompleted(result, { isCacheHit, totalTimeMs });
-        } else {
-          setCountdown(remaining);
-        }
-      }, 1000);
-    },
-    [onCompleted]
-  );
 
   // ── Core: single poll iteration ──
   // Menggunakan useRef agar bisa dipanggil dari setTimeout tanpa stale closure
@@ -223,7 +192,7 @@ const AsyncJobPanel: React.FC<AsyncJobPanelProps> = ({
             isCacheHit: result.is_cache_hit ?? false,
             totalTimeMs: result.total_time_ms,
           });
-          startCountdown(result.result, result.is_cache_hit ?? false, result.total_time_ms);
+          // No auto-navigate — user clicks "View Results" manually.
           break;
 
         case "failed":
@@ -386,14 +355,15 @@ const AsyncJobPanel: React.FC<AsyncJobPanelProps> = ({
               : "border-slate-200 bg-white"}`}>
 
         {/* ── Header ── */}
-        <div className={`px-6 py-4 border-b flex items-center justify-between
+        {/* px-4 sm:px-6 — tighter horizontal padding on mobile */}
+        <div className={`px-4 sm:px-6 py-3 sm:py-4 border-b flex items-start justify-between gap-2
           ${phase.kind === "completed"   ? "border-green-200 bg-green-100/50"
           : phase.kind === "failed" || phase.kind === "timeout"
                                          ? "border-red-200 bg-red-100/50"
           : phase.kind === "unavailable" ? "border-amber-200 bg-amber-100/50"
                                          : "border-slate-100 bg-slate-50"}`}>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-start gap-2 sm:gap-3 min-w-0">
             {/* Status icon */}
             {phase.kind === "submitting" || phase.kind === "polling" ? (
               <div className="w-8 h-8 rounded-full bg-[#1E3A5F]/10 flex items-center justify-center">
@@ -413,31 +383,35 @@ const AsyncJobPanel: React.FC<AsyncJobPanelProps> = ({
               </div>
             )}
 
-            <div>
-              <p className="text-sm font-semibold text-slate-800">{statusMessage}</p>
-              <p className="text-xs text-slate-500">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-slate-800 leading-tight">
+                {statusMessage}
+              </p>
+              <p className="text-xs text-slate-500 truncate">
                 {cancerName} · {datasetLabel}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* Cache hit badge */}
-            {(phase.kind === "polling" && phase.isCacheHit) ||
-             (phase.kind === "completed" && phase.isCacheHit) ? (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full
-                bg-yellow-100 text-yellow-700 border border-yellow-200 text-xs font-semibold">
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* Cache hit badge — hidden on xs to save space */}
+            {((phase.kind === "polling" && phase.isCacheHit) ||
+              (phase.kind === "completed" && phase.isCacheHit)) && (
+              <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5
+                rounded-full bg-yellow-100 text-yellow-700 border border-yellow-200
+                text-xs font-semibold">
                 <Zap size={10} /> Cache Hit
               </span>
-            ) : null}
+            )}
 
-            {/* Cancel / Close button */}
+            {/* Cancel / Close — min 44×44 touch target */}
             {phase.kind !== "completed" && (
               <button
                 onClick={onCancel}
                 title="Cancel job tracking"
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600
-                  hover:bg-slate-200 transition-colors"
+                className="w-9 h-9 flex items-center justify-center rounded-lg
+                  text-slate-400 hover:text-slate-600 hover:bg-slate-200
+                  active:bg-slate-300 transition-colors"
               >
                 <X size={16} />
               </button>
@@ -445,9 +419,15 @@ const AsyncJobPanel: React.FC<AsyncJobPanelProps> = ({
           </div>
         </div>
 
-        <div className="px-6 py-5 space-y-5">
+        {/* px-4 sm:px-6 — tighter on mobile */}
+        <div className="px-4 sm:px-6 py-4 sm:py-5 space-y-4 sm:space-y-5">
 
           {/* ── Timeline steps ── */}
+          {/*
+            On mobile (<sm): hide label text — circles with numbers/icons
+            are self-explanatory and prevent horizontal overflow.
+            On sm+: show full labels.
+          */}
           <div className="flex items-center gap-1">
             {steps.map((step, i) => (
               <React.Fragment key={step.label}>
@@ -469,16 +449,20 @@ const AsyncJobPanel: React.FC<AsyncJobPanelProps> = ({
                       i + 1
                     )}
                   </div>
-                  <span className={`text-[10px] font-medium whitespace-nowrap
-                    ${step.status === "done" ? "text-green-600"
-                    : step.status === "active" && (phase.kind !== "failed" && phase.kind !== "timeout") ? "text-[#1E3A5F]"
-                    : "text-slate-400"}`}>
+                  {/* Hidden on mobile — prevents text overflow on narrow screens */}
+                  <span className={`hidden sm:block text-[10px] font-medium whitespace-nowrap
+                    ${step.status === "done"
+                      ? "text-green-600"
+                      : step.status === "active" && phase.kind !== "failed" && phase.kind !== "timeout"
+                        ? "text-[#1E3A5F]"
+                        : "text-slate-400"}`}>
                     {step.label}
                   </span>
                 </div>
                 {i < steps.length - 1 && (
-                  <div className={`flex-1 h-0.5 mb-4 transition-all duration-700
-                    ${steps[i + 1].status !== "pending" ? "bg-green-300" : "bg-slate-200"}`} />
+                  <div className={`flex-1 h-0.5 transition-all duration-700
+                    ${steps[i + 1].status !== "pending" ? "bg-green-300" : "bg-slate-200"}
+                    ${/* extra bottom margin only when labels are visible */ "sm:mb-4"}`} />
                 )}
               </React.Fragment>
             ))}
@@ -563,26 +547,15 @@ const AsyncJobPanel: React.FC<AsyncJobPanelProps> = ({
                 </div>
               </div>
 
-              {/* Auto-navigate countdown */}
-              {countdown !== null && (
-                <p className="text-xs text-center text-slate-500">
-                  Redirecting to results in{" "}
-                  <span className="font-bold text-green-600">{countdown}s</span>…
-                </p>
-              )}
-
-              {/* Manual navigate */}
+              {/* User clicks manually — no auto-redirect */}
               <button
-                onClick={() => {
-                  if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
-                  onCompleted(phase.result, {
-                    isCacheHit: phase.isCacheHit,
-                    totalTimeMs: phase.totalTimeMs,
-                  });
-                }}
-                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg
-                  bg-green-600 text-white text-sm font-semibold hover:bg-green-700
-                  transition-colors"
+                onClick={() => onCompleted(phase.result, {
+                  isCacheHit: phase.isCacheHit,
+                  totalTimeMs: phase.totalTimeMs,
+                })}
+                className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-lg
+                  min-h-[44px] bg-green-600 text-white text-sm font-semibold
+                  hover:bg-green-700 active:bg-green-800 transition-colors"
               >
                 View Results <ArrowRight size={16} />
               </button>
@@ -599,8 +572,9 @@ const AsyncJobPanel: React.FC<AsyncJobPanelProps> = ({
               </div>
               <button
                 onClick={onCancel}
-                className="w-full py-2.5 rounded-lg border border-slate-300 text-slate-700
-                  text-sm font-medium hover:bg-slate-50 transition-colors"
+                className="w-full py-3 rounded-lg border border-slate-300 text-slate-700
+                  text-sm font-medium min-h-[44px] hover:bg-slate-50 active:bg-slate-100
+                  transition-colors"
               >
                 Back to Upload
               </button>
@@ -623,8 +597,9 @@ const AsyncJobPanel: React.FC<AsyncJobPanelProps> = ({
               </div>
               <button
                 onClick={onCancel}
-                className="w-full py-2.5 rounded-lg bg-[#1E3A5F] text-white text-sm
-                  font-semibold hover:bg-[#1A3352] transition-colors"
+                className="w-full py-3 rounded-lg bg-[#1E3A5F] text-white text-sm
+                  font-semibold min-h-[44px] hover:bg-[#1A3352] active:bg-[#162D49]
+                  transition-colors"
               >
                 Switch to Standard Mode
               </button>
@@ -645,22 +620,23 @@ const AsyncJobPanel: React.FC<AsyncJobPanelProps> = ({
                   </p>
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-col xs:flex-row gap-2">
                 <button
                   onClick={() => {
                     setElapsedMs(0);
                     startPolling(phase.jobId);
                   }}
-                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg
+                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-lg
                     border border-slate-300 text-slate-700 text-sm font-medium
-                    hover:bg-slate-50 transition-colors"
+                    hover:bg-slate-50 active:bg-slate-100 transition-colors min-h-[44px]"
                 >
                   <Loader2 size={14} /> Resume Polling
                 </button>
                 <button
                   onClick={onCancel}
-                  className="flex-1 py-2.5 rounded-lg border border-slate-300 text-slate-700
-                    text-sm font-medium hover:bg-slate-50 transition-colors"
+                  className="flex-1 py-3 rounded-lg border border-slate-300 text-slate-700
+                    text-sm font-medium hover:bg-slate-50 active:bg-slate-100 transition-colors
+                    min-h-[44px]"
                 >
                   Back to Upload
                 </button>
@@ -676,23 +652,6 @@ const AsyncJobPanel: React.FC<AsyncJobPanelProps> = ({
 
 export default AsyncJobPanel;
 
-// ─────────────────────────────────────────────────────────────
-// Exported helper: load pending job from sessionStorage
-// Dipanggil dari UploadDiagnosis saat mount untuk resume support
-// ─────────────────────────────────────────────────────────────
-export function loadPendingJob(cancerSlug: string): StoredJob | null {
-  try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const job: StoredJob = JSON.parse(raw);
-    // Hanya restore jika cancer slug cocok dan tidak expired (24h)
-    const AGE_MS = Date.now() - job.startedAt;
-    if (job.cancerSlug !== cancerSlug || AGE_MS > 24 * 60 * 60 * 1000) {
-      sessionStorage.removeItem(STORAGE_KEY);
-      return null;
-    }
-    return job;
-  } catch {
-    return null;
-  }
-}
+// loadPendingJob is exported from ../../utils/async-job-store
+// Re-export it here for backwards-compat with any existing imports.
+export { loadPendingJob } from "../../utils/async-job-store";
