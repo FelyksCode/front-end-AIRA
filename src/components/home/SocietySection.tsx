@@ -1,7 +1,7 @@
 import { Target, Layers, Zap, Lock } from "lucide-react";
 
 const stats = [
-  { value: "4",        label: "Cancer Types Supported" },
+  { value: "3",        label: "Cancer Types Supported" },
   { value: "8",        label: "AI Models (GENE, METHYL, MIRNA, RADIOMICS)" },
   { value: "Real-time", label: "Processing & Analysis" },
 ];

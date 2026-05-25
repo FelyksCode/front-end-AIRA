@@ -4,7 +4,7 @@ import { ArrowRight, ShieldCheck, Brain, FlaskConical } from "lucide-react";
 const badges = [
   { icon: ShieldCheck, text: "Clinically Validated" },
   { icon: Brain,       text: "Multi-modal AI" },
-  { icon: FlaskConical,text: "50+ Cancer Types" },
+  { icon: FlaskConical,text: "3+ Cancer Types" },
 ];
 
 export default function HeroSection() {

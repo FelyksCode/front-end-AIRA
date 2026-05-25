@@ -56,7 +56,7 @@ export default function PrognosisPage() {
           <div className="grid sm:grid-cols-3 gap-3 mb-10 text-left">
             {[
               { label: "AI Models", value: "8 Models", sub: "GENE · METHYL · MIRNA · RADIOMICS" },
-              { label: "Cancer Types", value: "4 Types", sub: "Supported cancer categories" },
+              { label: "Cancer Types", value: "3 Types", sub: "Supported cancer categories" },
               { label: "Status", value: "In Progress", sub: "Expected Q3 2025" },
             ].map(({ label, value, sub }) => (
               <div key={label} className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">

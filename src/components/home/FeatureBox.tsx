@@ -5,7 +5,7 @@ const steps = [
     number: "01",
     icon: MousePointerClick,
     title: "Select Cancer Type",
-    desc:  "Choose from 50+ supported cancer types in our clinical database.",
+    desc:  "Choose from 3+ supported cancer types in our clinical database.",
     color: "text-[#1E3A5F]",
     bg:    "bg-blue-50",
   },
