@@ -148,6 +148,18 @@ footer {
 .animate-slideIn { animation: slideIn 0.3s ease-out forwards; }
 .animate-pulse-status { animation: pulseStatus 2s ease-in-out infinite; }
 
+/* Indeterminate progress bar — dipakai AsyncJobPanel */
+@keyframes progressIndeterminate {
+  0%   { transform: translateX(-100%) scaleX(0.4); }
+  50%  { transform: translateX(60%)   scaleX(0.6); }
+  100% { transform: translateX(200%)  scaleX(0.4); }
+}
+.animate-progress-indeterminate {
+  width: 60%;
+  animation: progressIndeterminate 1.6s ease-in-out infinite;
+  transform-origin: left center;
+}
+
 /* ─────────────────────────────────────────────
    PDF / PRINT
 ───────────────────────────────────────────── */

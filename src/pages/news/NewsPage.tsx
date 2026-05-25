@@ -1,59 +1,27 @@
-﻿import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Newspaper, Video, BookOpen, Search, Calendar, User, Home, ChevronRight } from "lucide-react";
 import Footer from "../../components/layout/Footer";
-
-interface NewsItem {
-  id: number; title: string; image_url: any; category: string;
-  body: string; created_at: string; created_by: string; objectUrl?: string | null;
-}
+import { getNewsList, type NewsItem } from "../../models/news-model";
 
 const categoryIcons: Record<string, React.ElementType> = {
   news: Newspaper, tutorial: BookOpen, documentary: Video,
 };
 
 const NewsPage: React.FC = () => {
-  const [newsList,          setNewsList]         = useState<NewsItem[]>([]);
-  const [selectedCategory,  setSelectedCategory] = useState("all");
-  const [searchQuery,       setSearchQuery]      = useState("");
-  const [loading,           setLoading]          = useState(true);
+  const [newsList,         setNewsList]        = useState<NewsItem[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [searchQuery,      setSearchQuery]     = useState("");
+  const [loading,          setLoading]         = useState(true);
   const navigate = useNavigate();
-  const baseUrl  = import.meta.env.VITE_AI_BACKEND_URL;
-
-  const loadImageAsBlobUrl = async (imageData: any): Promise<string | null> => {
-    if (!imageData) return null;
-    if (imageData?.type === "Buffer" && Array.isArray(imageData.data)) {
-      try { return URL.createObjectURL(new Blob([new Uint8Array(imageData.data)], { type: "image/jpeg" })); }
-      catch { return null; }
-    }
-    if (typeof imageData === "string") {
-      if (imageData.startsWith("blob:") || imageData.startsWith("data:")) return imageData;
-      try {
-        const r = await fetch(`${baseUrl}${imageData.startsWith("/") ? imageData : "/" + imageData}`);
-        if (!r.ok) return null;
-        return URL.createObjectURL(await r.blob());
-      } catch { return null; }
-    }
-    if (imageData instanceof Blob) return URL.createObjectURL(imageData);
-    return null;
-  };
 
   useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      try {
-        const res  = await fetch(`${baseUrl}/news`);
-        if (!res.ok) throw new Error();
-        const data: NewsItem[] = await res.json();
-        const processed = await Promise.all(data.map(async item => ({
-          ...item, objectUrl: await loadImageAsBlobUrl(item.image_url)
-        })));
-        setNewsList(processed);
-      } catch { setNewsList([]); }
-      finally { setLoading(false); }
-    };
-    load();
-  }, [baseUrl]);
+    setLoading(true);
+    getNewsList()
+      .then(setNewsList)
+      .catch(() => setNewsList([]))
+      .finally(() => setLoading(false));
+  }, []);
 
   const categories = ["all", ...Array.from(new Set(newsList.map(n => n.category).filter(Boolean)))];
 
@@ -68,7 +36,8 @@ const NewsPage: React.FC = () => {
 
   const CardImage = ({ url, title, h }: { url?: string | null; title: string; h: string }) =>
     url ? (
-      <img src={url} alt={title} className={`w-full ${h} object-cover group-hover:scale-105 transition-transform duration-500`}
+      <img src={url} alt={title}
+        className={`w-full ${h} object-cover group-hover:scale-105 transition-transform duration-500`}
         onError={e => { e.currentTarget.style.display = "none"; }} />
     ) : (
       <div className={`w-full ${h} bg-slate-200 flex items-center justify-center`}>
@@ -115,8 +84,8 @@ const NewsPage: React.FC = () => {
             const Icon = categoryIcons[cat] || BookOpen;
             return (
               <button key={cat} onClick={() => setSelectedCategory(cat)}
-                className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-medium
-                  border whitespace-nowrap transition-all duration-150
+                className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs
+                  font-medium border whitespace-nowrap transition-all duration-150
                   ${selectedCategory === cat
                     ? "bg-[#1E3A5F] text-white border-[#1E3A5F]"
                     : "bg-white text-slate-600 border-slate-300 hover:border-slate-400"}`}>
@@ -149,7 +118,8 @@ const NewsPage: React.FC = () => {
             {/* Headline */}
             {headline && !searchQuery && selectedCategory === "all" && (
               <div onClick={() => navigate(`/news/${headline.id}`)}
-                className="group relative rounded-2xl overflow-hidden cursor-pointer mb-8 shadow-sm hover:shadow-md transition-shadow">
+                className="group relative rounded-2xl overflow-hidden cursor-pointer mb-8
+                  shadow-sm hover:shadow-md transition-shadow">
                 <CardImage url={headline.objectUrl} title={headline.title} h="h-72 md:h-96" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
                 <div className="absolute bottom-0 p-6 text-white">
@@ -173,8 +143,8 @@ const NewsPage: React.FC = () => {
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {(searchQuery || selectedCategory !== "all" ? filtered : rest).map(article => (
                 <article key={article.id} onClick={() => navigate(`/news/${article.id}`)}
-                  className="group bg-white rounded-xl border border-slate-200 overflow-hidden cursor-pointer
-                    hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
+                  className="group bg-white rounded-xl border border-slate-200 overflow-hidden
+                    cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
                   <div className="overflow-hidden">
                     <CardImage url={article.objectUrl} title={article.title} h="h-44" />
                   </div>
@@ -187,8 +157,8 @@ const NewsPage: React.FC = () => {
                         {new Date(article.created_at).toLocaleDateString("en-GB")}
                       </span>
                     </div>
-                    <h3 className="font-semibold text-sm text-slate-900 leading-snug group-hover:text-[#1E3A5F]
-                      transition-colors line-clamp-2 mb-2">
+                    <h3 className="font-semibold text-sm text-slate-900 leading-snug
+                      group-hover:text-[#1E3A5F] transition-colors line-clamp-2 mb-2">
                       {article.title}
                     </h3>
                     <p className="text-xs text-slate-400 flex items-center gap-1">

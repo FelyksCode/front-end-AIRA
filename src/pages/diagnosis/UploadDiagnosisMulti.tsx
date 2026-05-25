@@ -1,31 +1,31 @@
 import React, { useState } from 'react';
+import { submitMultiModalDiagnosis } from '../../models/diagnosis-model';
 
 const UploadDiagnosisMulti: React.FC = () => {
-  const [selectedCancer, setSelectedCancer] = useState('');
-  const [geneFile, setGeneFile] = useState<File | null>(null);
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [predictionResult, setPredictionResult] = useState<any>(null);
-  const baseUrl = import.meta.env.VITE_AI_BACKEND_URL;
+  const [selectedCancer,     setSelectedCancer]     = useState('');
+  const [geneFile,           setGeneFile]           = useState<File | null>(null);
+  const [imageFile,          setImageFile]          = useState<File | null>(null);
+  const [predictionResult,   setPredictionResult]   = useState<any>(null);
+  const [error,              setError]              = useState('');
+  const [loading,            setLoading]            = useState(false);
 
   const handleSubmit = async () => {
     if (!selectedCancer || !geneFile || !imageFile) return;
+    setError(''); setLoading(true);
 
     const slug = selectedCancer.toLowerCase().replace(/\s+/g, '-');
-    const url = `${baseUrl}/cancers/${slug}/predict?ai_feature=gene+image&feature_key=gene_image`;
-
-    const formData = new FormData();
-    formData.append("gene_file", geneFile);
-    formData.append("image_file", imageFile);
 
     try {
-      const res = await fetch(url, {
-        method: "POST",
-        body: formData,
+      const result = await submitMultiModalDiagnosis({
+        cancerSlug: slug,
+        geneFile,
+        imageFile,
       });
-      const result = await res.json();
       setPredictionResult(result);
-    } catch (err) {
-      console.error("Gagal kirim file:", err);
+    } catch (err: any) {
+      setError(err.message || 'Failed to submit prediction.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -33,15 +33,28 @@ const UploadDiagnosisMulti: React.FC = () => {
     <div className="p-6 max-w-xl mx-auto">
       <h2 className="text-xl font-bold mb-4">Upload Diagnosis (Gene + Image)</h2>
 
-      <input type="text" placeholder="Cancer Type" value={selectedCancer} onChange={(e) => setSelectedCancer(e.target.value)} className="mb-2 w-full p-2 border" />
+      <input
+        type="text" placeholder="Cancer Type" value={selectedCancer}
+        onChange={e => setSelectedCancer(e.target.value)}
+        className="mb-2 w-full p-2 border"
+      />
 
       <label className="block mb-1 font-semibold">Gene File</label>
-      <input type="file" onChange={(e) => setGeneFile(e.target.files?.[0] || null)} className="mb-4" />
+      <input type="file" onChange={e => setGeneFile(e.target.files?.[0] || null)} className="mb-4" />
 
       <label className="block mb-1 font-semibold">Image File</label>
-      <input type="file" onChange={(e) => setImageFile(e.target.files?.[0] || null)} className="mb-4" />
+      <input type="file" onChange={e => setImageFile(e.target.files?.[0] || null)} className="mb-4" />
 
-      <button onClick={handleSubmit} className="bg-blue-600 text-white px-4 py-2 rounded">Submit</button>
+      <button
+        onClick={handleSubmit} disabled={loading}
+        className="bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-50"
+      >
+        {loading ? 'Submitting…' : 'Submit'}
+      </button>
+
+      {error && (
+        <p className="mt-3 text-sm text-red-600">{error}</p>
+      )}
 
       {predictionResult && (
         <div className="mt-4 p-4 border rounded bg-gray-50">

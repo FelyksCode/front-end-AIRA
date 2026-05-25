@@ -54,6 +54,29 @@ export async function submitDiagnosisPredictionRaw(
 }
 
 /**
+ * Mengirim file CSV untuk prediksi async (non-blocking).
+ * Backend langsung return 202 + job_id tanpa menunggu AI selesai.
+ * Mengembalikan raw Response agar model layer bisa handle status 202 / 503.
+ */
+export async function submitDiagnosisAsyncRaw(
+  cancerSlug: string,
+  formData: FormData
+): Promise<Response> {
+  return await fetch(`${getBaseUrl()}/cancers/${cancerSlug}/predict-async`, {
+    method: "POST",
+    body: formData,
+  });
+}
+
+/**
+ * Polling: cek status job async berdasarkan job_id.
+ * Mengembalikan raw Response untuk ditangani di model layer.
+ */
+export async function getPredictionJobStatusRaw(jobId: string): Promise<Response> {
+  return await fetch(`${getBaseUrl()}/prediction-result/${jobId}`);
+}
+
+/**
  * Mengirim gene file + image file untuk prediksi multi-modal.
  */
 export async function submitMultiModalPredictionRaw(

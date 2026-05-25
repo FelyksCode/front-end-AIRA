@@ -14,6 +14,8 @@ import {
   getCancerDetailRaw,
   submitDiagnosisPredictionRaw,
   submitMultiModalPredictionRaw,
+  submitDiagnosisAsyncRaw,
+  getPredictionJobStatusRaw,
 } from "../repository/diagnosis-repository";
 
 // ─────────────────────────────────────────────────────────────
@@ -45,6 +47,31 @@ export interface PredictionResult {
 export type SubmitDiagnosisResult =
   | { success: true; data: PredictionResult }
   | { success: false; error: string; rawResponse?: string };
+
+// ── Async / Job types ──────────────────────────────────────
+
+/**
+ * Dikembalikan oleh submitDiagnosisAsync setelah backend menerima request (202).
+ */
+export type SubmitAsyncResult =
+  | { success: true; job_id: string; cached?: boolean; note?: string }
+  | { success: false; error: string; unavailable?: boolean };
+
+/**
+ * Status sebuah job yang dikembalikan saat polling.
+ * Discriminated union — bisa digunakan langsung dengan switch/type narrowing.
+ */
+export type PollJobResult =
+  | { status: "processing"; elapsed_ms?: number }
+  | {
+      status: "completed";
+      result: PredictionResult;
+      is_cache_hit?: boolean;
+      total_time_ms?: number;
+    }
+  | { status: "failed"; error: string }
+  | { status: "not_found" }
+  | { status: "unavailable" };
 
 // ─────────────────────────────────────────────────────────────
 // Mapper functions (private — hanya digunakan di dalam model ini)
@@ -143,6 +170,85 @@ export async function submitDiagnosis(params: {
       error: "Server returned invalid JSON. Raw response shown below.",
       rawResponse: text,
     };
+  }
+}
+
+/**
+ * Mengirim file CSV ke endpoint async.
+ * Mengembalikan SubmitAsyncResult — halaman tidak perlu tahu HTTP 202/503.
+ */
+export async function submitDiagnosisAsync(params: {
+  cancerSlug: string;
+  datasetLabel: string;
+  file: File;
+}): Promise<SubmitAsyncResult> {
+  const { cancerSlug, datasetLabel, file } = params;
+
+  const fd = new FormData();
+  fd.append("ai_feature", "diagnosis");
+  fd.append("feature_key", datasetLabel);
+  fd.append("file", file);
+
+  const res = await submitDiagnosisAsyncRaw(cancerSlug, fd);
+
+  // Redis disabled di backend
+  if (res.status === 503) {
+    const data = await res.json().catch(() => ({}));
+    return {
+      success: false,
+      error: data.error || "Async processing is currently unavailable.",
+      unavailable: true,
+    };
+  }
+
+  if (!res.ok) {
+    const text = await res.text();
+    return { success: false, error: text || "Failed to queue async job." };
+  }
+
+  const data = await res.json();
+  return {
+    success: true,
+    job_id: data.job_id,
+    cached: data.cached,
+    note: data.note,
+  };
+}
+
+/**
+ * Polling satu kali untuk status job async.
+ * Dipanggil berulang oleh AsyncJobPanel dengan adaptive backoff.
+ */
+export async function pollPredictionJob(jobId: string): Promise<PollJobResult> {
+  const res = await getPredictionJobStatusRaw(jobId);
+
+  if (res.status === 503) return { status: "unavailable" };
+  if (res.status === 404) return { status: "not_found" };
+  if (!res.ok) throw new Error(`Unexpected poll response: ${res.status}`);
+
+  const data = await res.json();
+
+  switch (data.status) {
+    case "processing":
+      return { status: "processing", elapsed_ms: data.elapsed_ms };
+
+    case "completed":
+      return {
+        status: "completed",
+        result: mapPredictionResult(data.result),
+        is_cache_hit: data.is_cache_hit ?? false,
+        total_time_ms: data.total_time_ms,
+      };
+
+    case "failed":
+      return {
+        status: "failed",
+        error: data.error || "AI processing failed. Please try again.",
+      };
+
+    default:
+      // Status tidak dikenal — anggap masih processing
+      return { status: "processing" };
   }
 }
 
