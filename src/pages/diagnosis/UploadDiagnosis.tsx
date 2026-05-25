@@ -2,12 +2,12 @@
 import { useParams, useLocation, useNavigate, Link } from "react-router-dom";
 import { Upload, FileText, CheckCircle2, ArrowLeft, Trash2, ChevronRight, Home, Microscope, AlertCircle } from "lucide-react";
 import Footer from "../../components/layout/Footer";
+import { submitDiagnosis } from "../../models/diagnosis-model";
 
 const UploadDiagnosis: React.FC = () => {
   const { cancerSlug } = useParams();
   const location       = useLocation();
   const navigate       = useNavigate();
-  const baseUrl        = import.meta.env.VITE_AI_BACKEND_URL;
   const { cancerName, datasetLabel } = location.state || {};
 
   const [file,         setFile]         = useState<File | null>(null);
@@ -42,23 +42,14 @@ const UploadDiagnosis: React.FC = () => {
     }, 500);
 
     try {
-      const fd = new FormData();
-      fd.append("ai_feature",   "diagnosis");
-      fd.append("feature_key",  datasetLabel);
-      fd.append("file",         file);
-
-      const res  = await fetch(`${baseUrl}/cancers/${cancerSlug}/predict`, { method: "POST", body: fd });
-      const text = await res.text();
+      const result = await submitDiagnosis({ cancerSlug, datasetLabel, file });
       clearInterval(timer); setProgress(100); setLoading(false);
 
-      if (!res.ok) { setError(text.includes("Invalid CSV") ? "Invalid CSV format. Please check your file headers." : text || "Server error."); setRawResponse(text); return; }
-
-      try {
-        const result = JSON.parse(text);
-        navigate("/result-diagnosis", { state: { predictionResult: result, cancerName, datasetLabel } });
-      } catch {
-        setError("Server returned invalid JSON. Raw response shown below.");
-        setRawResponse(text);
+      if (result.success) {
+        navigate("/result-diagnosis", { state: { predictionResult: result.data, cancerName, datasetLabel } });
+      } else {
+        setError(result.error);
+        if (result.rawResponse) setRawResponse(result.rawResponse);
       }
     } catch (err: any) {
       clearInterval(timer); setLoading(false);

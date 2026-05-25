@@ -2,6 +2,14 @@
 import { useNavigate, Link } from "react-router-dom";
 import { ChevronDown, ChevronRight, AlertCircle, Home, Microscope } from "lucide-react";
 import Footer from "../../components/layout/Footer";
+import {
+  getDiagnosisCancerList,
+  getDiagnosisFeatureOptions,
+  getDiagnosisCancerDetail,
+  type CancerItem,
+  type FeatureOption,
+  type CancerDetail,
+} from "../../models/diagnosis-model";
 
 interface DropdownProps {
   label: string;
@@ -76,30 +84,28 @@ const DiagnosisPage: React.FC = () => {
   const [selectedCancer,     setSelectedCancer]     = useState("");
   const [selectedFeature,    setSelectedFeature]    = useState("");
   const [selectedDatasetKey, setSelectedDatasetKey] = useState("");
-  const [cancerList,         setCancerList]         = useState<{ name: string; slug: string }[]>([]);
-  const [rawOptions,         setRawOptions]         = useState<any[]>([]);
-  const [cancerDetail,       setCancerDetail]       = useState<{ name: string; description: string } | null>(null);
+  const [cancerList,         setCancerList]         = useState<CancerItem[]>([]);
+  const [rawOptions,         setRawOptions]         = useState<FeatureOption[]>([]);
+  const [cancerDetail,       setCancerDetail]       = useState<CancerDetail | null>(null);
   const [errors,             setErrors]             = useState({ cancer: "", feature: "", dataset: "" });
 
   const navigate = useNavigate();
-  const baseUrl  = import.meta.env.VITE_AI_BACKEND_URL;
 
   useEffect(() => {
-    fetch(`${baseUrl}/cancers/?ai_feature=diagnosis`)
-      .then(r => r.json())
-      .then(data => setCancerList(Array.isArray(data) ? data.map((i: any) => ({ name: i.name, slug: i.slug })) : []))
+    getDiagnosisCancerList()
+      .then(setCancerList)
       .catch(() => setCancerList([]));
-  }, [baseUrl]);
+  }, []);
 
   useEffect(() => {
     if (!selectedCancer) { setRawOptions([]); setCancerDetail(null); return; }
-    fetch(`${baseUrl}/cancers/${selectedCancer}/feature-options?ai_feature=diagnosis`)
-      .then(r => r.json()).then(d => setRawOptions(Array.isArray(d) ? d : [])).catch(() => setRawOptions([]));
-    fetch(`${baseUrl}/cancers/${selectedCancer}?ai_feature=diagnosis`)
-      .then(r => r.json())
-      .then(d => setCancerDetail(d?.description ? { name: d.name, description: d.description } : null))
+    getDiagnosisFeatureOptions(selectedCancer)
+      .then(setRawOptions)
+      .catch(() => setRawOptions([]));
+    getDiagnosisCancerDetail(selectedCancer)
+      .then(setCancerDetail)
       .catch(() => setCancerDetail(null));
-  }, [selectedCancer, baseUrl]);
+  }, [selectedCancer]);
 
   const featureList = Array.from(new Set(rawOptions.map(o => o.ai_data_type)));
   const datasetList = rawOptions.filter(o => o.ai_data_type === selectedFeature).map(o => ({ key: o.key, label: o.label }));
