@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Menu, X, Activity } from "lucide-react";
+import { Menu, X, Activity, User } from "lucide-react";
 
 const navLinks = [
   { label: "Diagnosis",  path: "/diagnosis"  },
@@ -68,6 +68,7 @@ export default function Navbar() {
               className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1E3A5F]
                 text-white text-sm font-semibold hover:bg-[#1A3352] transition-colors duration-150"
             >
+              <User size={16} />
               Login to CMS
             </a>
           </div>
@@ -105,9 +106,10 @@ export default function Navbar() {
                 href={cmsURL ? `${cmsURL}/login` : "#"}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block w-full text-center px-4 py-2.5 rounded-lg bg-[#1E3A5F]
+                className="inline-flex w-full items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-[#1E3A5F]
                   text-white text-sm font-semibold hover:bg-[#1A3352] transition-colors"
               >
+                <User size={16} />
                 Login to CMS
               </a>
             </div>
