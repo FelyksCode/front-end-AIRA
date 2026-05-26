@@ -41,6 +41,7 @@ export interface FeatureOption {
 export interface PredictionResult {
   prediction: number;
   probability?: number;
+  probabilities?: number[];
   top_features?: Array<{ name: string; importance: number }>;
 }
 
@@ -98,6 +99,7 @@ function mapPredictionResult(raw: any): PredictionResult {
   return {
     prediction: raw.prediction,
     probability: raw.probability,
+    probabilities: raw.probabilities,
     top_features: raw.top_features,
   };
 }

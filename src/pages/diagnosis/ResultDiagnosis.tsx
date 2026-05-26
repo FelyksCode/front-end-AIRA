@@ -12,6 +12,7 @@ type PredictionResult = {
   prediction: number;
   probability?: number;
   top_features?: Array<{ name: string; importance: number }>;
+  probabilities?: number[];
 };
 
 /* ── helpers ──────────────────────────────────────────────── */
@@ -27,6 +28,44 @@ function safe(str: string): string {
     .replace(/['']/g, "'")
     .replace(/[""]/g, '"')
     .replace(/[^\x00-\xFF]/g, "");
+}
+
+function isMulticlassPrediction(result: PredictionResult): boolean {
+  return Array.isArray(result.probabilities) && result.probabilities.length > 2;
+}
+
+function getStageInfo(result: PredictionResult) {
+  const multiclass = isMulticlassPrediction(result);
+  const stageIndex = Number.isFinite(result.prediction) ? result.prediction : 0;
+
+  if (multiclass) {
+    const stageLabel = `Stage ${stageIndex}`;
+    return {
+      stageLabel,
+      stageDetail: stageLabel,
+      isAdvanced: stageIndex > 0,
+    };
+  }
+
+  const isAdvanced = stageIndex === 1;
+  return {
+    stageLabel: isAdvanced ? "Advanced Stage (III–IV)" : "Early Stage (I–II)",
+    stageDetail: isAdvanced ? "Advanced Stage (III–IV)" : "Early Stage (I–II)",
+    isAdvanced,
+  };
+}
+
+function getConfidenceValue(result: PredictionResult): string {
+  if (typeof result.probability === "number") {
+    return (result.probability * 100).toFixed(1);
+  }
+
+  if (Array.isArray(result.probabilities) && result.probabilities.length > 0) {
+    const maxProbability = Math.max(...result.probabilities);
+    return (maxProbability * 100).toFixed(1);
+  }
+
+  return "N/A";
 }
 
 /* ── PDF generator ────────────────────────────────────────── */
@@ -222,10 +261,8 @@ const ResultDiagnosis: React.FC = () => {
     );
   }
 
-  const isAdvanced = predictionResult.prediction === 1;
-  const confidence = typeof predictionResult.probability === "number"
-    ? (predictionResult.probability * 100).toFixed(1) : "N/A";
-  const stageLabel = isAdvanced ? "Advanced Stage (III–IV)" : "Early Stage (I–II)";
+  const { stageLabel, stageDetail, isAdvanced } = getStageInfo(predictionResult);
+  const confidence = getConfidenceValue(predictionResult);
   const stageColor = isAdvanced ? "text-red-600" : "text-green-600";
   const stageBg    = isAdvanced ? "bg-red-50 border-red-200" : "bg-green-50 border-green-200";
   const stageBadge = isAdvanced
@@ -233,8 +270,8 @@ const ResultDiagnosis: React.FC = () => {
     : "bg-green-100 text-green-700 border-green-200";
 
   const summary = isAdvanced
-    ? `AI analysis detected patterns consistent with advanced-stage ${cancerName || "cancer"}, including elevated biomarker activity and potential multi-site involvement.`
-    : `AI analysis indicates patterns consistent with early-stage ${cancerName || "cancer"}, characterised by localised findings and lower high-risk biomarker expression.`;
+    ? `AI analysis detected patterns consistent with ${stageDetail} ${cancerName || "cancer"}, including elevated biomarker activity and higher-risk findings.`
+    : `AI analysis indicates patterns consistent with ${stageDetail} ${cancerName || "cancer"}, characterised by lower-risk findings.`;
 
   const clinicalActions = isAdvanced
     ? ["Advanced staging imaging (PET-CT / CT)", "Tumor board multidisciplinary review", "Biopsy and molecular profiling", "Systemic therapy evaluation"]
