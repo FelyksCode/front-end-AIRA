@@ -126,7 +126,7 @@ const NewsPage: React.FC = () => {
                   <span className="inline-block px-2 py-0.5 rounded bg-white/20 text-xs font-medium mb-2">
                     {headline.category}
                   </span>
-                  <h2 className="text-xl md:text-2xl font-bold leading-snug mb-3 max-w-2xl">
+                  <h2 className="text-xl text-white md:text-2xl font-bold leading-snug mb-3 max-w-2xl">
                     {headline.title}
                   </h2>
                   <div className="flex items-center gap-3 text-xs text-white/70">
