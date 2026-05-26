@@ -40,6 +40,19 @@ export async function getCancerDetailRaw(cancerSlug: string): Promise<any> {
 }
 
 /**
+ * Mengambil sample dataset CSV untuk feature tertentu.
+ * Backend akan memilih file sample secara acak dari folder yang sesuai model.
+ */
+export async function getSampleDatasetRaw(
+  cancerSlug: string,
+  featureKey: string
+): Promise<Response> {
+  return await fetch(
+    `${getBaseUrl()}/cancers/${cancerSlug}/feature-options/${featureKey}/sample-dataset?ai_feature=diagnosis`
+  );
+}
+
+/**
  * Mengirim file CSV untuk prediksi diagnosis.
  * Mengembalikan raw Response agar model layer bisa mengolah status & body.
  */

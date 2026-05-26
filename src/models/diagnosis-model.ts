@@ -12,6 +12,7 @@ import {
   getCancerListRaw,
   getFeatureOptionsRaw,
   getCancerDetailRaw,
+  getSampleDatasetRaw,
   submitDiagnosisPredictionRaw,
   submitMultiModalPredictionRaw,
   submitDiagnosisAsyncRaw,
@@ -45,8 +46,17 @@ export interface PredictionResult {
   top_features?: Array<{ name: string; importance: number }>;
 }
 
+export interface SampleDatasetDownloadResult {
+  filename: string;
+  blob: Blob;
+}
+
 export type SubmitDiagnosisResult =
   | { success: true; data: PredictionResult }
+  | { success: false; error: string; rawResponse?: string };
+
+export type SampleDatasetResult =
+  | { success: true; data: SampleDatasetDownloadResult }
   | { success: false; error: string; rawResponse?: string };
 
 // ── Async / Job types ──────────────────────────────────────
@@ -104,6 +114,18 @@ function mapPredictionResult(raw: any): PredictionResult {
   };
 }
 
+function getFilenameFromContentDisposition(headerValue: string | null): string | null {
+  if (!headerValue) return null;
+
+  const utf8Match = headerValue.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) {
+    return decodeURIComponent(utf8Match[1]);
+  }
+
+  const simpleMatch = headerValue.match(/filename="?([^";]+)"?/i);
+  return simpleMatch?.[1] || null;
+}
+
 // ─────────────────────────────────────────────────────────────
 // Use-case functions (dipanggil oleh pages/components)
 // ─────────────────────────────────────────────────────────────
@@ -134,6 +156,38 @@ export async function getDiagnosisCancerDetail(
 ): Promise<CancerDetail | null> {
   const raw = await getCancerDetailRaw(cancerSlug);
   return mapCancerDetail(raw);
+}
+
+/**
+ * Mengambil sample dataset acak untuk cancer dan feature tertentu.
+ */
+export async function getDiagnosisSampleDataset(params: {
+  cancerSlug: string;
+  featureKey: string;
+}): Promise<SampleDatasetResult> {
+  const { cancerSlug, featureKey } = params;
+  const res = await getSampleDatasetRaw(cancerSlug, featureKey);
+  const filenameFromHeader = getFilenameFromContentDisposition(
+    res.headers.get("content-disposition")
+  );
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    return {
+      success: false,
+      error: text || "Failed to download sample dataset.",
+      rawResponse: text,
+    };
+  }
+
+  const blob = await res.blob();
+  return {
+    success: true,
+    data: {
+      filename: filenameFromHeader || `${cancerSlug}-${featureKey}-sample.csv`,
+      blob,
+    },
+  };
 }
 
 /**

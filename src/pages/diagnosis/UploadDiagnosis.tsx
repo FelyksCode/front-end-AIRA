@@ -2,10 +2,10 @@ import React, { useState, useEffect } from "react";
 import { useParams, useLocation, useNavigate, Link } from "react-router-dom";
 import {
   Upload, FileText, CheckCircle2, ArrowLeft, Trash2,
-  ChevronRight, Home, Microscope, AlertCircle, Zap, Activity,
+  ChevronRight, Home, Microscope, AlertCircle, Zap, Activity, Download,
 } from "lucide-react";
 import Footer from "../../components/layout/Footer";
-import { submitDiagnosis } from "../../models/diagnosis-model";
+import { getDiagnosisSampleDataset, submitDiagnosis } from "../../models/diagnosis-model";
 import AsyncJobPanel from "../../components/diagnosis/AsyncJobPanel";
 import { loadPendingJob } from "../../utils/async-job-store";
 import type { PredictionResult } from "../../models/diagnosis-model";
@@ -36,6 +36,7 @@ const UploadDiagnosis: React.FC = () => {
   const [error,       setError]       = useState("");
   const [rawResponse, setRawResponse] = useState("");
   const [loading,     setLoading]     = useState(false);
+  const [sampleLoading, setSampleLoading] = useState(false);
   const [dragging,    setDragging]    = useState(false);
   const [progress,    setProgress]    = useState(0);
   const [elapsed,     setElapsed]     = useState(0);
@@ -64,6 +65,43 @@ const UploadDiagnosis: React.FC = () => {
     const f = e.dataTransfer.files?.[0];
     if (f?.name.endsWith(".csv")) handleFile(f);
     else setError("Only .csv files are supported.");
+  };
+
+  const handleDownloadSample = async () => {
+    if (!cancerSlug || !datasetLabel) {
+      setError("Missing cancer or dataset info. Please go back.");
+      return;
+    }
+
+    setSampleLoading(true);
+    setError("");
+
+    try {
+      const result = await getDiagnosisSampleDataset({
+        cancerSlug,
+        featureKey: datasetLabel,
+      });
+
+      if (!result.success) {
+        setError(result.error);
+        if (result.rawResponse) setRawResponse(result.rawResponse);
+        return;
+      }
+
+      const { blob, filename } = result.data;
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch (err: any) {
+      setError(err.message || "Failed to download sample dataset.");
+    } finally {
+      setSampleLoading(false);
+    }
   };
 
   // ── Standard mode submit ──
@@ -225,6 +263,7 @@ const UploadDiagnosis: React.FC = () => {
               ))}
             </div>
 
+
             {/* ════════════════════════════════════════════════════
                 Async Job Panel — menggantikan form saat mode async aktif
             ════════════════════════════════════════════════════ */}
@@ -338,9 +377,28 @@ const UploadDiagnosis: React.FC = () => {
 
                 {/* ── Drop zone ── */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-3">
-                    Upload File <span className="text-slate-400 font-normal">(.csv)</span>
-                  </label>
+                  <div className="flex items-center justify-between mb-3">
+                    <label className="text-sm font-medium text-slate-700">
+                      Upload File <span className="text-slate-400 font-normal">(.csv)</span>
+                    </label>
+                    <button
+                      onClick={handleDownloadSample}
+                      disabled={sampleLoading || !cancerSlug || !datasetLabel}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg
+                        border border-cyan-200 bg-cyan-50 text-cyan-700 text-xs font-semibold
+                        hover:bg-cyan-100 active:bg-cyan-200 transition-colors
+                        disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      {sampleLoading ? (
+                        <span className="animate-pulse">Downloading…</span>
+                      ) : (
+                        <>
+                          <Download size={12} />
+                          Sample CSV
+                        </>
+                      )}
+                    </button>
+                  </div>
                   <div
                     onDragOver={e => { e.preventDefault(); setDragging(true); }}
                     onDragLeave={() => setDragging(false)}
