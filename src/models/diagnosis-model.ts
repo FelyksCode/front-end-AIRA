@@ -53,7 +53,7 @@ export interface SampleDatasetDownloadResult {
 
 export type SubmitDiagnosisResult =
   | { success: true; data: PredictionResult }
-  | { success: false; error: string; rawResponse?: string };
+  | { success: false; error: string; rawResponse?: string; missingFeatures?: boolean };
 
 export type SampleDatasetResult =
   | { success: true; data: SampleDatasetDownloadResult }
@@ -66,7 +66,7 @@ export type SampleDatasetResult =
  */
 export type SubmitAsyncResult =
   | { success: true; job_id: string; cached?: boolean; note?: string }
-  | { success: false; error: string; unavailable?: boolean };
+  | { success: false; error: string; unavailable?: boolean; missingFeatures?: boolean };
 
 /**
  * Status sebuah job yang dikembalikan saat polling.
@@ -80,7 +80,7 @@ export type PollJobResult =
       is_cache_hit?: boolean;
       total_time_ms?: number;
     }
-  | { status: "failed"; error: string }
+  | { status: "failed"; error: string; missingFeatures?: boolean }
   | { status: "not_found" }
   | { status: "unavailable" };
 
@@ -211,14 +211,39 @@ export async function submitDiagnosis(params: {
   const text = await res.text();
 
   if (!res.ok) {
-    const error = text.includes("Invalid CSV")
-      ? "Invalid CSV format. Please check your file headers."
-      : text || "Server error.";
-    return { success: false, error, rawResponse: text };
+    try {
+      const json = JSON.parse(text);
+      // Deteksi missing_features dari backend
+      if (Array.isArray(json.missing_features) && json.missing_features.length > 0) {
+        return { success: false, error: "missing_features", missingFeatures: true };
+      }
+      const error = json.error || (text.includes("Invalid CSV")
+        ? "Invalid CSV format. Please check your file headers."
+        : text || "Server error.");
+      return { success: false, error, rawResponse: text };
+    } catch {
+      const error = text.includes("Invalid CSV")
+        ? "Invalid CSV format. Please check your file headers."
+        : text || "Server error.";
+      return { success: false, error, rawResponse: text };
+    }
   }
 
   try {
     const result = JSON.parse(text);
+
+    // Tangani error di level aplikasi (HTTP 200 tapi body = error JSON)
+    if (result.status === "error" || result.status === "failed") {
+      if (Array.isArray(result.missing_features) && result.missing_features.length > 0) {
+        return { success: false, error: "missing_features", missingFeatures: true };
+      }
+      return {
+        success: false,
+        error: result.error || "Server returned an error.",
+        rawResponse: text,
+      };
+    }
+
     return { success: true, data: mapPredictionResult(result) };
   } catch {
     return {
@@ -259,7 +284,15 @@ export async function submitDiagnosisAsync(params: {
 
   if (!res.ok) {
     const text = await res.text();
-    return { success: false, error: text || "Failed to queue async job." };
+    try {
+      const json = JSON.parse(text);
+      if (Array.isArray(json.missing_features) && json.missing_features.length > 0) {
+        return { success: false, error: "missing_features", missingFeatures: true };
+      }
+      return { success: false, error: json.error || text || "Failed to queue async job." };
+    } catch {
+      return { success: false, error: text || "Failed to queue async job." };
+    }
   }
 
   const data = await res.json();
@@ -296,11 +329,17 @@ export async function pollPredictionJob(jobId: string): Promise<PollJobResult> {
         total_time_ms: data.total_time_ms,
       };
 
-    case "failed":
+    case "failed": {
+      const isMissingFeatures =
+        (Array.isArray(data.missing_features) && data.missing_features.length > 0) ||
+        (typeof data.error === "string" &&
+          data.error.toLowerCase().includes("missing required features"));
       return {
         status: "failed",
-        error: data.error || "AI processing failed. Please try again.",
+        error: isMissingFeatures ? "missing_features" : (data.error || "AI processing failed. Please try again."),
+        missingFeatures: isMissingFeatures,
       };
+    }
 
     default:
       // Status tidak dikenal — anggap masih processing

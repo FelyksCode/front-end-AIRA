@@ -131,7 +131,7 @@ function buildPDF(params: {
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(15, 23, 42);
-  doc.text(`${confidence}%`, 82, y + 23);
+  doc.text(confidence !== "N/A" ? `${confidence}%` : "—", 82, y + 23);
   doc.setFontSize(7.5);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(100, 116, 139);
@@ -371,7 +371,7 @@ const ResultDiagnosis: React.FC = () => {
               On mobile: 2-column grid (stage + confidence on top row, cancer type below).
               On sm+: 3-column grid.
             */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-6">
+            <div className={`grid gap-4 sm:gap-6 ${confidence !== "N/A" ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-1 sm:grid-cols-2"}`}>
               <div>
                 <p className="text-xs text-slate-500 font-medium mb-1">Predicted Stage</p>
                 {/* text-xl sm:text-2xl — prevents "Advanced Stage (III–IV)" from wrapping poorly */}
@@ -379,20 +379,22 @@ const ResultDiagnosis: React.FC = () => {
                   {stageLabel}
                 </p>
               </div>
-              <div>
-                <p className="text-xs text-slate-500 font-medium mb-1">Model Confidence</p>
-                <p className="text-xl sm:text-2xl font-bold text-slate-900">
-                  {confidence}%
-                </p>
-                <div className="mt-2 h-2 bg-white/60 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full ${isAdvanced ? "bg-red-500" : "bg-green-500"}`}
-                    style={{ width: `${confidence}%` }}
-                  />
+              {confidence !== "N/A" && (
+                <div>
+                  <p className="text-xs text-slate-500 font-medium mb-1">Model Confidence</p>
+                  <p className="text-xl sm:text-2xl font-bold text-slate-900">
+                    {confidence}%
+                  </p>
+                  <div className="mt-2 h-2 bg-white/60 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${isAdvanced ? "bg-red-500" : "bg-green-500"}`}
+                      style={{ width: `${confidence}%` }}
+                    />
+                  </div>
                 </div>
-              </div>
-              {/* Cancer type spans full row on mobile for clarity */}
-              <div className="col-span-2 sm:col-span-1">
+              )}
+              {/* Cancer type: spans full row on mobile (2-col); normal on sm+ */}
+              <div className={confidence !== "N/A" ? "col-span-2 sm:col-span-1" : ""}>
                 <p className="text-xs text-slate-500 font-medium mb-1">Cancer Type</p>
                 <p className="text-base sm:text-lg font-bold text-slate-900">
                   {cancerName || "—"}

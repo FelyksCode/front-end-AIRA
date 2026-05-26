@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, useLocation, useNavigate, Link } from "react-router-dom";
 import {
   Upload, FileText, CheckCircle2, ArrowLeft, Trash2,
-  ChevronRight, Home, Microscope, AlertCircle, Zap, Activity, Download,
+  ChevronRight, Home, Microscope, AlertCircle, Zap, Activity, Download, FileWarning,
 } from "lucide-react";
 import Footer from "../../components/layout/Footer";
 import { getDiagnosisSampleDataset, submitDiagnosis } from "../../models/diagnosis-model";
@@ -32,14 +32,15 @@ const UploadDiagnosis: React.FC = () => {
   const { cancerName, datasetLabel } = location.state || {};
 
   // ── Form state ──
-  const [file,        setFile]        = useState<File | null>(null);
-  const [error,       setError]       = useState("");
-  const [rawResponse, setRawResponse] = useState("");
-  const [loading,     setLoading]     = useState(false);
-  const [sampleLoading, setSampleLoading] = useState(false);
-  const [dragging,    setDragging]    = useState(false);
-  const [progress,    setProgress]    = useState(0);
-  const [elapsed,     setElapsed]     = useState(0);
+  const [file,            setFile]            = useState<File | null>(null);
+  const [error,           setError]           = useState("");
+  const [missingFeatures, setMissingFeatures] = useState(false);
+  const [rawResponse,     setRawResponse]     = useState("");
+  const [loading,         setLoading]         = useState(false);
+  const [sampleLoading,   setSampleLoading]   = useState(false);
+  const [dragging,        setDragging]        = useState(false);
+  const [progress,        setProgress]        = useState(0);
+  const [elapsed,         setElapsed]         = useState(0);
 
   // ── Processing mode ──
   const [mode, setMode] = useState<ProcessingMode>("standard");
@@ -106,7 +107,7 @@ const UploadDiagnosis: React.FC = () => {
 
   // ── Standard mode submit ──
   const handleSubmit = async () => {
-    setError(""); setRawResponse("");
+    setError(""); setRawResponse(""); setMissingFeatures(false);
     if (!file)                        { setError("Please upload a .csv file."); return; }
     if (!cancerSlug || !datasetLabel) { setError("Missing cancer or dataset info. Please go back."); return; }
     if (file.type !== "text/csv" && !file.name.endsWith(".csv"))
@@ -133,6 +134,8 @@ const UploadDiagnosis: React.FC = () => {
         navigate("/result-diagnosis", {
           state: { predictionResult: result.data, cancerName, datasetLabel },
         });
+      } else if (result.missingFeatures) {
+        setMissingFeatures(true);
       } else {
         setError(result.error);
         if (result.rawResponse) setRawResponse(result.rawResponse);
@@ -464,7 +467,33 @@ const UploadDiagnosis: React.FC = () => {
                   </div>
                 </div>
 
-                {/* ── Error ── */}
+                {/* ── Missing Features Error ── */}
+                {missingFeatures && (
+                  <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50
+                    overflow-hidden animate-fadeIn">
+                    <div className="flex items-center gap-2 px-4 py-3 border-b border-amber-200
+                      bg-amber-100/60">
+                      <FileWarning size={16} className="text-amber-600 shrink-0" />
+                      <p className="text-sm font-semibold text-amber-800">
+                        Data Pasien Tidak Sesuai
+                      </p>
+                    </div>
+                    <div className="px-4 py-3 space-y-2">
+                      <p className="text-sm text-amber-800">
+                        File CSV yang diunggah memiliki <span className="font-semibold">
+                        missing features</span> — kemungkinan besar data pasiennya salah
+                        atau tidak sesuai untuk model kanker ini.
+                      </p>
+                      <p className="text-xs text-amber-700">
+                        Pastikan CSV menggunakan format yang benar. Gunakan tombol
+                        <span className="font-semibold"> Sample CSV</span> di atas untuk
+                        mengunduh contoh format yang diharapkan.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Generic Error ── */}
                 {error && (
                   <div className="mt-4 flex items-start gap-2 p-3 bg-red-50 border
                     border-red-200 rounded-lg text-sm text-red-700">

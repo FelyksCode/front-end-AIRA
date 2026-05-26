@@ -21,7 +21,7 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import {
   CheckCircle2, XCircle, Loader2, Clock, Zap, Copy,
-  Check, AlertTriangle, X, ArrowRight, WifiOff,
+  Check, AlertTriangle, X, ArrowRight, WifiOff, FileWarning,
 } from "lucide-react";
 import {
   submitDiagnosisAsync,
@@ -72,7 +72,7 @@ type Phase =
   | { kind: "submitting" }
   | { kind: "polling";    jobId: string; note?: string; isCacheHit?: boolean }
   | { kind: "completed";  jobId: string; result: PredictionResult; isCacheHit: boolean; totalTimeMs?: number }
-  | { kind: "failed";     jobId?: string; error: string }
+  | { kind: "failed";     jobId?: string; error: string; missingFeatures?: boolean }
   | { kind: "unavailable" }
   | { kind: "timeout";    jobId: string };
 
@@ -198,7 +198,7 @@ const AsyncJobPanel: React.FC<AsyncJobPanelProps> = ({
         case "failed":
           if (elapsedIntervalRef.current) clearInterval(elapsedIntervalRef.current);
           clearJob();
-          setPhase({ kind: "failed", jobId, error: result.error });
+          setPhase({ kind: "failed", jobId, error: result.error, missingFeatures: result.missingFeatures });
           break;
 
         case "not_found":
@@ -259,7 +259,7 @@ const AsyncJobPanel: React.FC<AsyncJobPanelProps> = ({
         if (result.unavailable) {
           setPhase({ kind: "unavailable" });
         } else {
-          setPhase({ kind: "failed", error: result.error });
+          setPhase({ kind: "failed", error: result.error, missingFeatures: result.missingFeatures });
         }
         return;
       }
@@ -565,11 +565,37 @@ const AsyncJobPanel: React.FC<AsyncJobPanelProps> = ({
           {/* ── Failed state ── */}
           {phase.kind === "failed" && (
             <div className="space-y-3">
-              <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200
-                rounded-lg text-sm text-red-700">
-                <AlertTriangle size={15} className="shrink-0 mt-0.5" />
-                <p>{phase.error}</p>
-              </div>
+              {phase.missingFeatures ? (
+                /* ── Missing Features — amber card ── */
+                <div className="rounded-xl border border-amber-200 bg-amber-50 overflow-hidden">
+                  <div className="flex items-center gap-2 px-4 py-3 border-b border-amber-200
+                    bg-amber-100/60">
+                    <FileWarning size={15} className="text-amber-600 shrink-0" />
+                    <p className="text-sm font-semibold text-amber-800">
+                      Data Pasien Tidak Sesuai
+                    </p>
+                  </div>
+                  <div className="px-4 py-3 space-y-2">
+                    <p className="text-sm text-amber-800">
+                      File CSV yang diunggah memiliki <span className="font-semibold">
+                      missing features</span> — kemungkinan besar data pasiennya salah
+                      atau tidak sesuai untuk model kanker ini.
+                    </p>
+                    <p className="text-xs text-amber-700">
+                      Pastikan CSV menggunakan format yang benar. Unduh{" "}
+                      <span className="font-semibold">Sample CSV</span> untuk melihat
+                      format yang diharapkan.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                /* ── Generic error — red card ── */
+                <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200
+                  rounded-lg text-sm text-red-700">
+                  <AlertTriangle size={15} className="shrink-0 mt-0.5" />
+                  <p>{phase.error}</p>
+                </div>
+              )}
               <button
                 onClick={onCancel}
                 className="w-full py-3 rounded-lg border border-slate-300 text-slate-700
