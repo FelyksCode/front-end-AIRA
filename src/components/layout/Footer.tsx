@@ -28,7 +28,7 @@ export default function Footer() {
               clinical professionals and medical researchers.
             </p>
             <p className="text-xs text-slate-500">
-              Funded by the Ministry of Education and Culture, Republic of Indonesia.
+              Research by the Multimedia Nusantara University.
             </p>
           </div>
 
@@ -59,11 +59,11 @@ export default function Footer() {
             <ul className="space-y-3">
               <li className="flex items-start gap-2.5 text-sm text-white/80">
                 <Phone size={15} className="mt-0.5 shrink-0 text-white/50" />
-                (021) 1234 567 ext.3518
+                (021) 54220808
               </li>
               <li className="flex items-start gap-2.5 text-sm text-white/80">
                 <Mail size={15} className="mt-0.5 shrink-0 text-white/50" />
-                AIRA@umn.ac.id
+                aira@umn.ac.id
               </li>
               <li className="flex items-start gap-2.5 text-sm text-white/80">
                 <MapPin size={15} className="mt-0.5 shrink-0 text-white/50" />

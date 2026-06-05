@@ -1,9 +1,9 @@
 import { Target, Layers, Zap, Lock } from "lucide-react";
 
 const stats = [
-  { value: "3",        label: "Cancer Types Supported" },
-  { value: "8",        label: "AI Models (GENE, METHYL, MIRNA, RADIOMICS)" },
+  { value: "5",        label: "Cancer Types Supported" },
   { value: "Real-time", label: "Processing & Analysis" },
+  { value: "10",        label: "AI Models (GENE, METHYL, MIRNA, RADIOMICS)" },
 ];
 
 const capabilities = [
@@ -40,7 +40,7 @@ export default function SocietySection() {
             Built for Clinical Excellence
           </h2>
           <p className="text-slate-600 max-w-xl mx-auto">
-            AIRA is designed with clinicians in mind — precise, transparent, and reliable.
+            AIRA is designed with clinicians in mind precise, transparent, and reliable.
           </p>
         </div>
 

@@ -31,7 +31,7 @@ const IntroductionSection = () => {
         `}
         style={{ color: "#191757" }}
       >
-        WHAT IS AIRA 7?
+        WHAT IS AIRA ?
       </h2>
 
       <p
@@ -40,8 +40,8 @@ const IntroductionSection = () => {
         `}
         style={{ color: "#000000" }}
       >
-        AIRA 7 is an AI-powered tool that helps diagnose cancer, predict prognosis,
-        and suggest treatment options — all in one platformmm.
+        AIRA (AI Research for Oncology) is an AI-powered tool that helps diagnose cancer, predict prognosis,
+        and suggest treatment options, all in one platform.
       </p>
     </section>
   );
