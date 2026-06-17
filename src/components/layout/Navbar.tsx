@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Menu, X, Activity, User } from "lucide-react";
+import { Menu, X, User } from "lucide-react";
+import logoAira from "@/assets/logo-aira.png";
 
 const navLinks = [
   { label: "Diagnosis",  path: "/diagnosis"  },
@@ -36,10 +37,7 @@ export default function Navbar() {
 
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2.5 shrink-0">
-            <div className="w-8 h-8 rounded-lg bg-[#1E3A5F] flex items-center justify-center">
-              <Activity className="text-white" size={18} />
-            </div>
-            <span className="text-[#1E3A5F] font-bold text-xl tracking-tight">AIRA</span>
+            <img src={logoAira} alt="AIRA Logo" className="h-14 w-auto object-contain" />
           </Link>
 
           {/* Desktop Nav */}
