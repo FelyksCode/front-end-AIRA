@@ -37,10 +37,12 @@ export default function SocietySection() {
         {/* Header */}
         <div className="text-center mb-12">
           <h2 className="text-3xl font-bold text-[#1E3A5F] mb-3">
-            Built for Clinical Excellence
+            AI Research for Clinical Pathway Excellence
           </h2>
           <p className="text-slate-600 max-w-xl mx-auto">
-            AIRA is designed with clinicians in mind precise, transparent, and reliable.
+            AIRA — the Artificial Intelligence Research Group at Universitas Multimedia Nusantara —
+            is built to support disease clinical pathway analysis and prediction with
+            precision, transparency, and reliability.
           </p>
         </div>
 

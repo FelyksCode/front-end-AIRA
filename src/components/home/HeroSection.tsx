@@ -19,21 +19,21 @@ export default function HeroSection() {
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full
                 bg-cyan-50 text-cyan-700 text-xs font-semibold border border-cyan-200">
                 <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse-status" />
-                AI Research for Oncology
+                AI Research Group · UMN
               </span>
             </div>
 
             <div className="space-y-4">
               <h1 className="text-4xl sm:text-5xl lg:text-5xl font-extrabold text-[#1E3A5F]
                 leading-[1.1] tracking-tight">
-                Precision Cancer<br />
-                <span className="text-cyan-600">Analysis</span> for<br />
-                Clinical Practice
+                AI for Disease<br />
+                Clinical Pathway<br />
+                <span className="text-cyan-600">Analysis</span> & Prediction
               </h1>
               <p className="text-lg text-slate-600 leading-relaxed max-w-lg">
-                AIRA empowers clinicians with AI-assisted tools for cancer diagnosis,
-                prognosis prediction, and treatment planning powered by
-                multi-modal machine learning.
+                AIRA is the Artificial Intelligence Research Group at Universitas Multimedia
+                Nusantara, focused on AI for disease clinical pathway analysis and prediction
+                powered by multi-modal machine learning.
               </p>
             </div>
 

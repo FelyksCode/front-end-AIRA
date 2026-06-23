@@ -23,12 +23,11 @@ export default function Footer() {
               <span className="text-white font-bold text-xl tracking-tight">AIRA</span>
             </div>
             <p className="text-sm leading-relaxed text-slate-400 max-w-xs">
-              AI-powered clinical decision support platform for cancer diagnosis,
-              prognosis analysis, and treatment planning. Designed for
-              clinical professionals and medical researchers.
+              AI research platform for disease clinical pathway analysis and prediction.
+              Built to support clinical professionals and medical researchers.
             </p>
             <p className="text-xs text-slate-500">
-              Research by the Multimedia Nusantara University.
+              Artificial Intelligence Research Group at Universitas Multimedia Nusantara.
             </p>
           </div>
 
@@ -78,7 +77,7 @@ export default function Footer() {
       <div className="border-t border-white/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row
           items-center justify-between gap-2 text-xs text-slate-500">
-          <p>© {new Date().getFullYear()} AIRA — AI Research & Analysis Platform. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} AIRA — Artificial Intelligence Research Group, Universitas Multimedia Nusantara. All rights reserved.</p>
           <p>Built for clinical use · Not a substitute for physician judgment</p>
         </div>
       </div>

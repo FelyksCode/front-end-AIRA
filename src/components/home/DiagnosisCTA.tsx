@@ -10,14 +10,14 @@ export default function DiagnosisCTA() {
           {/* Left — Heading */}
           <div className="max-w-lg">
             <p className="text-cyan-400 text-xs font-semibold uppercase tracking-widest mb-3">
-              Clinical AI Platform
+              AI Research Group · UMN
             </p>
             <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3 leading-snug">
-              Ready to begin clinical analysis?
+              Ready to begin clinical pathway analysis?
             </h2>
             <p className="text-slate-300 text-sm leading-relaxed">
-              AIRA's AI models are ready to assist your diagnostic workflow.
-              Select a feature below to get started.
+              AIRA's AI models are ready to support disease clinical pathway analysis
+              and prediction. Select a feature below to get started.
             </p>
           </div>
 
